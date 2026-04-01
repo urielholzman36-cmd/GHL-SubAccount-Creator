@@ -1,0 +1,7 @@
+{
+  "construction": { "id": "REPLACE_ME", "type": "own" },
+  "plumbing": { "id": "REPLACE_ME", "type": "own" },
+  "electrical": { "id": "REPLACE_ME", "type": "own" },
+  "cleaning": { "id": "REPLACE_ME", "type": "own" },
+  "general": { "id": "REPLACE_ME", "type": "own" }
+}
