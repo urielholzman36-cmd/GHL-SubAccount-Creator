@@ -1,0 +1,87 @@
+import 'dotenv/config';
+import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { existsSync } from 'fs';
+import express from 'express';
+import session from 'express-session';
+import Database from 'better-sqlite3';
+import bcrypt from 'bcryptjs';
+import { initializeDb } from './db/index.js';
+import { getSetting, setSetting } from './db/queries.js';
+import { requireAuth } from './middleware/auth.js';
+import { createAuthRouter } from './routes/auth.js';
+import { createBuildsRouter } from './routes/builds.js';
+import { createStatsRouter } from './routes/stats.js';
+
+const require = createRequire(import.meta.url);
+const SqliteStore = require('better-sqlite3-session-store')(session);
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const projectRoot = join(__dirname, '..');
+
+// ─── Database setup ──────────────────────────────────────────────────────────
+const db = new Database(join(projectRoot, 'data.db'));
+initializeDb(db);
+
+// ─── First-boot: hash and store APP_PASSWORD ─────────────────────────────────
+const existingHash = getSetting(db, 'password_hash');
+if (!existingHash) {
+  const rawPassword = process.env.APP_PASSWORD;
+  if (!rawPassword) {
+    console.error('ERROR: APP_PASSWORD is not set in .env');
+    process.exit(1);
+  }
+  const hash = await bcrypt.hash(rawPassword, 12);
+  setSetting(db, 'password_hash', hash);
+  console.log('App password stored (first boot).');
+}
+
+// ─── Auto-generate SESSION_SECRET if not set ─────────────────────────────────
+let sessionSecret = getSetting(db, 'session_secret');
+if (!sessionSecret) {
+  const { randomBytes } = await import('crypto');
+  sessionSecret = randomBytes(32).toString('hex');
+  setSetting(db, 'session_secret', sessionSecret);
+  console.log('Session secret generated and stored.');
+}
+
+// ─── Express app ─────────────────────────────────────────────────────────────
+const app = express();
+
+app.use(express.json());
+
+app.use(
+  session({
+    store: new SqliteStore({ client: db }),
+    secret: sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    },
+  })
+);
+
+// ─── Routes ──────────────────────────────────────────────────────────────────
+app.use('/api/auth', createAuthRouter(db));
+app.use('/api/builds', requireAuth, createBuildsRouter(db));
+app.use('/api/stats', requireAuth, createStatsRouter(db));
+
+// ─── Static files (production) ───────────────────────────────────────────────
+const distPath = join(projectRoot, 'dist');
+if (existsSync(distPath)) {
+  app.use(express.static(distPath));
+  // SPA fallback — serve index.html for all non-API routes
+  app.get(/^(?!\/api).*/, (req, res) => {
+    res.sendFile(join(distPath, 'index.html'));
+  });
+}
+
+// ─── Start server ─────────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 3003;
+app.listen(PORT, () => {
+  console.log(`GHL Sub-Account Builder running on http://localhost:${PORT}`);
+});
