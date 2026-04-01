@@ -722,6 +722,11 @@ export function createAuthRouter(db) {
     res.json({ ok: true });
   });
 
+  router.get('/check', (req, res) => {
+    if (req.session?.authenticated) return res.json({ ok: true });
+    res.status(401).json({ ok: false });
+  });
+
   router.post('/logout', (req, res) => {
     req.session.destroy((err) => {
       if (err) return res.status(500).json({ error: 'Logout failed' });
@@ -1227,6 +1232,8 @@ export class BuildRunner {
         return result;
       } catch (err) {
         lastError = err;
+        // If step handles its own fallback (e.g., phone number), don't outer-retry
+        if (err.skipRetry) break;
       }
     }
 
@@ -1289,6 +1296,7 @@ export class BuildRunner {
         try {
           return await this.ghl.buyPhoneNumber(locationId, build.area_code);
         } catch (err) {
+          // Try nearby area codes before giving up
           const fallbackCodes = getNearbyAreaCodes(build.area_code);
           for (const code of fallbackCodes) {
             try {
@@ -1297,7 +1305,10 @@ export class BuildRunner {
               continue;
             }
           }
-          throw err;
+          // Mark as non-retryable — fallback already exhausted all options
+          const exhaustedErr = new Error(`No phone numbers available for area code ${build.area_code} or nearby codes`);
+          exhaustedErr.skipRetry = true;
+          throw exhaustedErr;
         }
       }
 
@@ -1478,6 +1489,13 @@ export function createBuildsRouter(db, ghl) {
     if (build.status === 'completed') {
       res.write(`event: build-complete\ndata: ${JSON.stringify({
         type: 'build-complete', location_id: build.location_id, total_duration_ms: build.total_duration_ms,
+      })}\n\n`);
+    }
+    if (build.status === 'failed') {
+      const failedStep = steps.find(s => s.status === 'failed');
+      res.write(`event: build-failed\ndata: ${JSON.stringify({
+        type: 'build-failed', step: failedStep?.step_number, error: failedStep?.error_message,
+        retry_count: failedStep?.retry_count || 0,
       })}\n\n`);
     }
 
@@ -1712,13 +1730,7 @@ export function useAuth() {
 }
 ```
 
-Note: We need to add a `/api/auth/check` endpoint. Add to `server/routes/auth.js`:
-```js
-router.get('/check', (req, res) => {
-  if (req.session?.authenticated) return res.json({ ok: true });
-  res.status(401).json({ ok: false });
-});
-```
+Note: The `/api/auth/check` endpoint was already added in Task 3 Step 4.
 
 - [ ] **Step 2: Create src/pages/Login.jsx**
 
@@ -1784,19 +1796,28 @@ import BuildHistory from './pages/BuildHistory';
 import Sidebar from './components/Sidebar';
 
 function ProtectedLayout() {
-  const { authenticated } = useAuth();
+  const { authenticated, logout } = useAuth();
   if (authenticated === null) return <div className="min-h-screen bg-page-bg flex items-center justify-center text-gray-400">Loading...</div>;
   if (!authenticated) return <Navigate to="/login" />;
 
   return (
     <div className="min-h-screen bg-page-bg flex">
       <Sidebar />
-      <main className="flex-1 overflow-auto">
-        <Routes>
-          <Route path="/" element={<NewBuild />} />
-          <Route path="/history" element={<BuildHistory />} />
-        </Routes>
-      </main>
+      <div className="flex-1 flex flex-col overflow-auto">
+        <header className="flex justify-end items-center px-6 py-3 border-b border-gray-200 bg-white">
+          <div className="flex items-center gap-3 text-sm text-gray-500">
+            <span>👤 Team</span>
+            <button onClick={logout} className="text-gray-400 hover:text-gray-600">Logout</button>
+          </div>
+        </header>
+        <main className="flex-1 overflow-auto">
+          <Routes>
+            <Route path="/" element={<NewBuild />} />
+            <Route path="/history" element={<BuildHistory />} />
+            <Route path="/settings" element={<div className="p-6"><h1 className="text-xl font-bold text-navy">Settings</h1><p className="text-gray-500 mt-1">Snapshot management — coming soon</p></div>} />
+          </Routes>
+        </main>
+      </div>
     </div>
   );
 }
@@ -1838,6 +1859,7 @@ export default function Sidebar() {
       <nav className="mt-2 flex-1">
         <NavLink to="/" end className={linkClass}>🏗️ New Build</NavLink>
         <NavLink to="/history" className={linkClass}>📋 Build History</NavLink>
+        <NavLink to="/settings" className={linkClass}>⚙️ Settings</NavLink>
       </nav>
       <button onClick={logout} className="px-4 py-3 text-sm text-white/40 hover:text-white/60 text-left border-t border-white/10">
         Logout
@@ -1863,17 +1885,7 @@ export default function BuildHistory() {
 }
 ```
 
-- [ ] **Step 6: Add auth check endpoint to server**
-
-Add to `server/routes/auth.js` before the return:
-```js
-router.get('/check', (req, res) => {
-  if (req.session?.authenticated) return res.json({ ok: true });
-  res.status(401).json({ ok: false });
-});
-```
-
-- [ ] **Step 7: Verify login page renders**
+- [ ] **Step 6: Verify login page renders**
 
 ```bash
 cd /Users/urielholzman/ghl-sub-account-builder && npx vite build && node server/index.js &
@@ -1882,7 +1894,7 @@ curl -s http://localhost:3003 | head -5
 kill %1
 ```
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/ server/routes/auth.js && git commit -m "feat: login page, auth hook, sidebar, and protected routing"
@@ -1954,7 +1966,13 @@ export function useSSE(buildId) {
   );
   const [buildStatus, setBuildStatus] = useState(null); // null | 'complete' | 'failed'
   const [buildResult, setBuildResult] = useState(null);
+  const [connectKey, setConnectKey] = useState(0); // increment to force reconnect
   const eventSourceRef = useRef(null);
+
+  // Call this after clicking Retry to re-open the SSE stream
+  function reconnect() {
+    setConnectKey(k => k + 1);
+  }
 
   useEffect(() => {
     if (!buildId) return;
@@ -1993,9 +2011,9 @@ export function useSSE(buildId) {
     };
 
     return () => es.close();
-  }, [buildId]);
+  }, [buildId, connectKey]);
 
-  return { steps, buildStatus, buildResult };
+  return { steps, buildStatus, buildResult, reconnect };
 }
 ```
 
@@ -2159,4 +2177,4 @@ kill %1 2>/dev/null; rm -f cookies.txt
 | 10 | Build history page | 7 |
 | 11 | Integration testing | All |
 
-**Parallel opportunities:** Tasks 2-3 and Task 4 can run in parallel. Tasks 8, 9, and 10 can run in parallel after Task 7.
+**Parallel opportunities:** Tasks 2-3 and Task 4 can run in parallel (Task 4 only depends on Task 1). Tasks 8 and 10 can run in parallel after Task 7 (both only need the layout). Task 9 depends on Task 8 (form submit triggers the tracker).
