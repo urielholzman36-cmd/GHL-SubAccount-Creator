@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import BuildForm from '../components/BuildForm';
+import ProgressTracker from '../components/ProgressTracker';
 
 export default function NewBuild() {
   const [activeBuildId, setActiveBuildId] = useState(null);
@@ -15,11 +16,7 @@ export default function NewBuild() {
           <BuildForm onBuildStarted={setActiveBuildId} />
         </div>
         <div className="w-80 flex-shrink-0">
-          {activeBuildId ? (
-            <div className="bg-white rounded-xl p-5 shadow text-sm text-gray-400">
-              Progress tracker coming next...
-            </div>
-          ) : null}
+          {activeBuildId && <ProgressTracker buildId={activeBuildId} />}
         </div>
       </div>
     </div>
