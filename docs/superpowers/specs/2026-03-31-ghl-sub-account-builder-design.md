@@ -17,7 +17,7 @@ A Node.js web app for creating GoHighLevel sub-accounts. One-page builder UI wit
 | Backend | Node.js + Express (port 3003) |
 | Database | SQLite (via better-sqlite3) |
 | Real-time | Server-Sent Events (SSE) |
-| GHL API | v2, base URL `https://services.leadconnectorhq.com`, Bearer token auth, Version header `2021-07-28` |
+| GHL API | v2, base URL `https://services.leadconnectorhq.com`, Bearer token auth, Version header per-endpoint (see Build Steps section) |
 
 **Branding:** VO360 theme — magenta `#ff00ff`, navy `#000080`, dark sidebar `#1a2133`, background `#f2f7fa`, white cards, Poppins font.
 
@@ -58,6 +58,14 @@ Three grouped sections in a white card:
 - Last Name (text, required)
 
 Submit button: magenta gradient, full-width — "Create Sub-Account"
+
+**Validation rules:**
+- Business Email: valid email format
+- Business Phone: 10+ digits (stripped of formatting)
+- Phone Area Code: exactly 3 digits
+- Website URL: valid URL format if provided
+- All required fields: non-empty after trimming
+- Validated on both frontend (inline errors) and backend (400 response with field errors)
 
 ### Progress Tracker (right side, 300px)
 
@@ -100,41 +108,95 @@ All steps run sequentially. Each step is logged to the `build_steps` table and s
 
 ### Step 1: Create Sub-Account
 ```
-POST /locations
+POST /locations/
+Headers: { Authorization: Bearer <agency_token>, Version: 2021-07-28 }
 Body: { name, phone, email, address, city, state, postalCode, country, timezone, snapshot: { id, type: "own" } }
+Response: { location: { id: "locationId", ... } }
 ```
-Snapshot ID loaded from `snapshots.json` based on selected industry. Saves the returned `locationId` for all subsequent steps.
+Snapshot ID loaded from `snapshots.json` based on selected industry. Saves the returned `locationId` for all subsequent steps. Also generates a location-level API token for subsequent calls if needed.
+
+**Stored state:** `location_id` saved to `builds` table.
 
 ### Step 2: Provision Phone Number
 ```
-POST /phone-number/buy
+POST /phone-numbers/buy
+Headers: { Authorization: Bearer <agency_token>, Version: 2021-07-28 }
 Body: { locationId, areaCode, capabilities: ["sms", "voice", "mms"] }
+Response: { phoneNumber: { id, number, ... } }
 ```
-If the requested area code is unavailable, tries 3 nearby area codes before failing.
+If the requested area code is unavailable, tries nearby area codes by incrementing/decrementing the area code numerically (e.g., 305 → 304, 306, 303) up to 3 attempts before failing.
+
+**Stored state:** `phone_number` and `phone_number_id` saved to `api_response` JSON in `build_steps`.
 
 ### Step 3: Set Custom Values
-Updates custom values on the new location with: business_name, business_phone, business_email, business_address, website_url, provisioned_phone.
+```
+POST /locations/{locationId}/customValues
+Headers: { Authorization: Bearer <agency_token>, Version: 2021-07-28 }
+Body: { customValues: [
+  { fieldKey: "contact.business_name", value: "<business_name>" },
+  { fieldKey: "contact.business_phone", value: "<business_phone>" },
+  { fieldKey: "contact.business_email", value: "<business_email>" },
+  { fieldKey: "contact.business_address", value: "<full_address>" },
+  { fieldKey: "contact.website_url", value: "<website_url>" },
+  { fieldKey: "contact.provisioned_phone", value: "<phone_from_step_2>" }
+] }
+```
+Custom fields are expected to exist on the location (created by the snapshot in Step 1). If a field key does not exist, the API call will skip it gracefully. The field keys above use GHL's `contact.` prefix convention; actual keys will be verified against the snapshot's custom fields during implementation and updated if they differ.
 
 ### Step 4: Create Pipeline
 ```
 POST /opportunities/pipelines
-Body: { locationId, name: "Sales Pipeline", stages: [...] }
+Headers: { Authorization: Bearer <agency_token>, Version: 2021-07-28 }
+Body: { locationId, name: "Sales Pipeline", stages: [{ name: "Stage Name", position: 0 }, ...] }
+Response: { pipeline: { id, stages: [...] } }
 ```
 
 Pipeline stages by industry:
 - **Construction:** New Lead → Site Visit → Estimate Sent → Negotiation → Contract Signed → In Progress → Completed
-- **Plumbing/Electrical:** Emergency → Scheduled → Dispatched → Completed → Invoice Sent → Paid
+- **Plumbing/Electrical:** Emergency → Scheduled → Dispatched → Completed → Invoice Sent → Paid (shared — intentionally the same for both industries)
 - **Cleaning:** New Lead → Quote Sent → Booked → Recurring → Cancelled
 - **General:** New Lead → Contacted → Estimate Sent → Follow Up → Won → Lost
 
+**Stored state:** `pipeline_id` saved to `api_response` JSON in `build_steps`.
+
 ### Step 5: Create Admin User
 ```
-POST /users
-Body: { locationIds: [locationId], firstName, lastName, email, role: "admin" }
+POST /users/
+Headers: { Authorization: Bearer <agency_token>, Version: 2021-07-28 }
+Body: { locationIds: [locationId], firstName, lastName, email, role: "admin", permissions: {} }
+Response: { user: { id, email, ... } }
 ```
+GHL sends an invitation email to the new user automatically. The user sets their own password via GHL's invite flow.
+
+**Stored state:** `user_id` saved to `api_response` JSON in `build_steps`.
 
 ### Step 6: Send Welcome Communications
-Send welcome email + SMS to the client via GHL's built-in messaging (conversations API) with login details.
+First, create a contact for the account owner in the new location, then send email + SMS:
+
+```
+Step 6a: Create contact
+POST /contacts/
+Headers: { Authorization: Bearer <agency_token>, Version: 2021-07-28 }
+Body: { locationId, firstName, lastName, email, phone: "<business_phone>" }
+Response: { contact: { id, ... } }
+
+Step 6b: Send welcome email
+POST /conversations/messages
+Headers: { Authorization: Bearer <agency_token>, Version: 2021-07-28 }
+Body: { type: "Email", locationId, contactId, message: "<welcome_email_body>" }
+
+Step 6c: Send welcome SMS
+POST /conversations/messages
+Headers: { Authorization: Bearer <agency_token>, Version: 2021-07-28 }
+Body: { type: "SMS", locationId, contactId, message: "<welcome_sms_body>" }
+```
+
+**Welcome message content:**
+- **Email subject:** "Welcome to [Business Name] — Your Account is Ready"
+- **Email body:** Greeting, confirms their GHL sub-account is set up, instructs them to check their email for the GHL invitation (from Step 5), includes business details for reference, VO360 support contact.
+- **SMS:** "Hi [First Name]! Your [Business Name] account is ready. Check your email for the login invitation. — VO360"
+
+Note: The admin user (Step 5) receives their login credentials via GHL's built-in invitation email. Step 6 is a separate welcome message from the agency to the client confirming everything is set up.
 
 ---
 
@@ -154,8 +216,9 @@ Send welcome email + SMS to the client via GHL's built-in messaging (conversatio
 ### .env
 ```
 GHL_AGENCY_API_KEY=
-APP_PASSWORD=         # shared password for basic auth (hashed at first run)
+APP_PASSWORD=yourpassword   # plaintext — app hashes and stores in SQLite on first boot
 PORT=3003
+SESSION_SECRET=             # auto-generated on first boot if empty
 ```
 
 ---
@@ -164,9 +227,10 @@ PORT=3003
 
 Basic shared-password auth for a small team:
 - Login page with single password field
-- Password stored hashed in `.env` (bcrypt)
+- On first boot, the app reads `APP_PASSWORD` from `.env`, hashes it with bcrypt, and stores the hash in SQLite (`settings` table). Subsequent logins compare against the stored hash.
 - Session cookie after successful login (express-session, 24h expiry)
-- All API routes protected by auth middleware
+- Session store: `better-sqlite3-session-store` (persists sessions across restarts, no memory leaks)
+- All API routes (except `/api/auth/login`) protected by auth middleware
 
 ---
 
@@ -179,7 +243,11 @@ Basic shared-password auth for a small team:
 | business_name | TEXT | |
 | business_email | TEXT | |
 | business_phone | TEXT | |
-| address | TEXT | Full address string |
+| address | TEXT | Street address |
+| city | TEXT | |
+| state | TEXT | |
+| zip | TEXT | |
+| country | TEXT | |
 | industry | TEXT | construction/plumbing/electrical/cleaning/general |
 | timezone | TEXT | |
 | owner_first_name | TEXT | |
@@ -206,6 +274,12 @@ Basic shared-password auth for a small team:
 | error_message | TEXT | nullable |
 | retry_count | INTEGER | Default 0 |
 | api_response | TEXT | JSON blob of GHL API response |
+
+### settings
+| Column | Type | Notes |
+|--------|------|-------|
+| key | TEXT | Primary key (e.g., "password_hash", "session_secret") |
+| value | TEXT | |
 
 ---
 
@@ -254,8 +328,9 @@ data: {"step": 3, "error": "Phone number unavailable", "retry_count": 3}
 2. **Phone fallback:** If requested area code unavailable, tries 3 nearby area codes.
 3. **Duplicate name:** If GHL returns duplicate error, appends Unix timestamp to business name.
 4. **Manual retry:** Failed steps show a "Retry" button. Hits `POST /api/builds/:id/retry/:step`, picks up from the failed step without re-running completed steps.
-5. **Partial state preservation:** Completed steps are never re-run. Build resumes from the failed step.
+5. **Partial state preservation:** Completed steps are never re-run. Build resumes from the failed step. Intermediate state (`location_id`, `phone_number`, `pipeline_id`, `user_id`, `contact_id`) is retrieved from the `api_response` JSON column in `build_steps` for the corresponding completed step. The retry endpoint reads prior step results to reconstruct the state needed for the failed step.
 6. **Full logging:** Error messages + complete GHL API responses saved to `build_steps` for debugging.
+7. **SSE reconnection:** Builds run to completion server-side regardless of browser disconnection. If the SSE connection drops, the frontend auto-reconnects using `EventSource` (built-in retry). On reconnect, it fetches the current build state via `GET /api/builds/:id` and resumes the SSE stream. The UI reconciles the current state with any missed events.
 
 ---
 
@@ -298,7 +373,7 @@ ghl-sub-account-builder/
 │       ├── useSSE.js         # SSE connection hook
 │       └── useAuth.js        # Auth state hook
 ├── tailwind.config.js        # VO360 brand colors
-├── vite.config.js            # Proxy to Express
+├── vite.config.js            # Dev proxy: /api/* → http://localhost:3003
 ├── package.json
 ├── .env
 └── docs/
