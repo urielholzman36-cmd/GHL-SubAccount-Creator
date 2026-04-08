@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSSE } from '../hooks/useSSE';
+import AwaitingWebsiteBanner from './AwaitingWebsiteBanner';
 
 function StepCircle({ status, stepNumber }) {
   if (status === 'pending') {
@@ -91,13 +92,35 @@ export default function ProgressTracker({ buildId, onRetry }) {
     <div className="bg-white rounded-xl shadow p-5">
       <h2 className="text-sm font-bold text-navy mb-4">Build Progress</h2>
 
-      {buildStatus === 'paused' && pauseInfo && (
+      {buildStatus === 'paused' && pauseInfo && pauseInfo.context?.reason === 'awaiting_website' && (
+        <AwaitingWebsiteBanner
+          pauseInfo={pauseInfo}
+          onResume={async (payload) => {
+            setResuming(true);
+            try {
+              await fetch(`/api/builds/${buildId}/resume`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+              reconnect();
+            } catch (err) {
+              console.error('Resume failed:', err);
+            } finally {
+              setResuming(false);
+            }
+          }}
+          resuming={resuming}
+        />
+      )}
+      {buildStatus === 'paused' && pauseInfo && pauseInfo.context?.reason !== 'awaiting_website' && (
         <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <p className="text-sm font-bold text-yellow-800">Waiting to continue</p>
           <p className="text-xs text-yellow-700 mt-1">
             {pauseInfo.context?.message || 'This build is paused. Click Continue to proceed.'}
           </p>
           <button
+            type="button"
             onClick={handleResume}
             disabled={resuming}
             className="mt-2 text-xs font-semibold text-white bg-magenta hover:opacity-90 disabled:opacity-50 px-4 py-1.5 rounded-md"

@@ -13,7 +13,8 @@ const DEFAULT_PHASES = [
     id: 2,
     name: 'Website Build',
     steps: [
-      { step: 3, name: 'Website Creation (Manual)' },
+      { step: 3, name: 'Generate 10web Prompt' },
+      { step: 4, name: 'Website Creation (Manual)' },
     ],
   },
 ];

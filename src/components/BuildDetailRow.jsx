@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import AwaitingWebsiteBanner from './AwaitingWebsiteBanner';
 
 const STEP_NAMES = [
   'Create Sub-Account',
@@ -105,6 +106,11 @@ export default function BuildDetailRow({ buildId }) {
 
   const steps = data?.steps ?? [];
   const isPaused = data?.status === 'paused';
+  const pauseContext = (() => {
+    if (!data?.pause_context) return null;
+    try { return JSON.parse(data.pause_context); } catch { return null; }
+  })();
+  const isAwaitingWebsite = isPaused && pauseContext?.reason === 'awaiting_website';
 
   async function handleResume() {
     try {
@@ -124,7 +130,22 @@ export default function BuildDetailRow({ buildId }) {
   return (
     <tr>
       <td colSpan={6} className="bg-gray-50 border-t px-6 py-4">
-        {isPaused && (
+        {isAwaitingWebsite && (
+          <AwaitingWebsiteBanner
+            pauseInfo={{ context: pauseContext }}
+            onResume={async (payload) => {
+              await fetch(`/api/builds/${buildId}/resume`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+              const res = await fetch(`/api/builds/${buildId}`);
+              if (res.ok) setData(await res.json());
+            }}
+            resuming={false}
+          />
+        )}
+        {isPaused && !isAwaitingWebsite && (
           <div className="mb-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center justify-between">
             <div>
               <p className="text-sm font-bold text-yellow-800">Waiting to continue</p>
@@ -133,10 +154,12 @@ export default function BuildDetailRow({ buildId }) {
               </p>
             </div>
             <button
+              type="button"
               onClick={handleResume}
-              className="text-xs font-semibold text-white bg-magenta hover:opacity-90 px-4 py-1.5 rounded-md"
+              style={{ backgroundColor: '#d6336c', color: '#ffffff' }}
+              className="text-sm font-bold px-5 py-2 rounded-md shadow hover:opacity-90"
             >
-              Continue
+              ▶ Continue
             </button>
           </div>
         )}
