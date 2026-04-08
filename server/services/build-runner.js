@@ -4,7 +4,7 @@ import { PHASES, getPhaseForStep, isStepOptional } from './phases.config.js';
 const DEFAULT_BACKOFF_MS = [1000, 2000, 4000];
 const MAX_RETRIES = 3;
 
-export const SNAPSHOT_ID = '4XHJuEPYsk1xeUKcmrL9';
+export const SNAPSHOT_ID = 'SnbFmqepikqgzI5tgEZ6';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
