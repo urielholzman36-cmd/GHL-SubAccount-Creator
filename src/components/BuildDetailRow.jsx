@@ -104,10 +104,42 @@ export default function BuildDetailRow({ buildId }) {
   }
 
   const steps = data?.steps ?? [];
+  const isPaused = data?.status === 'paused';
+
+  async function handleResume() {
+    try {
+      await fetch(`/api/builds/${buildId}/resume`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      // Reload this row's data
+      const res = await fetch(`/api/builds/${buildId}`);
+      if (res.ok) setData(await res.json());
+    } catch (err) {
+      console.error('Resume failed:', err);
+    }
+  }
 
   return (
     <tr>
       <td colSpan={6} className="bg-gray-50 border-t px-6 py-4">
+        {isPaused && (
+          <div className="mb-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-yellow-800">Waiting to continue</p>
+              <p className="text-xs text-yellow-700 mt-0.5">
+                This build is paused at step {data?.paused_at_step}. Click Continue to proceed.
+              </p>
+            </div>
+            <button
+              onClick={handleResume}
+              className="text-xs font-semibold text-white bg-magenta hover:opacity-90 px-4 py-1.5 rounded-md"
+            >
+              Continue
+            </button>
+          </div>
+        )}
         <div className="space-y-3">
           {steps.map((step, i) => {
             const name = step.step_name ?? STEP_NAMES[i] ?? `Step ${i + 1}`;
