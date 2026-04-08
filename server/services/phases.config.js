@@ -11,7 +11,8 @@ export const PHASES = [
     id: 2,
     name: 'Website Build',
     steps: [
-      { number: 3, name: 'Website Creation (Manual)', pausesForManualInput: true },
+      { number: 3, name: 'Generate 10web Prompt' },
+      { number: 4, name: 'Website Creation (Manual)', pausesForManualInput: true },
     ],
   },
 ];
