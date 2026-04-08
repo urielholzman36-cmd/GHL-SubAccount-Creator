@@ -142,10 +142,26 @@ export default function BuildForm({ onBuildStarted }) {
 
     setSubmitting(true);
     try {
+      const payload = {
+        business_name: form.businessName,
+        business_phone: form.businessPhone,
+        business_email: form.businessEmail,
+        address: form.address,
+        city: form.city,
+        state: form.state,
+        zip: form.zip,
+        country: form.country,
+        industry: form.industry,
+        timezone: form.timezone,
+        area_code: form.areaCode,
+        website_url: form.websiteUrl,
+        owner_first_name: form.firstName,
+        owner_last_name: form.lastName,
+      };
       const res = await fetch('/api/builds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       if (res.status === 201) {
