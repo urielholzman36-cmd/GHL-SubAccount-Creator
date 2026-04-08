@@ -15,7 +15,7 @@ export default function Sidebar() {
       {/* Brand */}
       <div className="px-5 py-6">
         <h1 className="text-magenta font-bold text-lg tracking-wide">VO360</h1>
-        <p className="text-white/40 text-xs mt-0.5">Sub-Account Builder</p>
+        <p className="text-white/40 text-xs mt-0.5">Client Onboarding Hub</p>
       </div>
 
       {/* Nav links */}

@@ -22,7 +22,7 @@ function IndustryBadge({ industry }) {
 }
 
 function StatusBadge({ status }) {
-  if (status === 'success') {
+  if (status === 'success' || status === 'completed') {
     return (
       <span className="px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700">
         ✓ Success
@@ -33,6 +33,20 @@ function StatusBadge({ status }) {
     return (
       <span className="px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-600">
         ✗ Failed
+      </span>
+    );
+  }
+  if (status === 'paused') {
+    return (
+      <span className="px-2 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-800">
+        ⏸ Paused
+      </span>
+    );
+  }
+  if (status === 'running') {
+    return (
+      <span className="px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-700">
+        Running
       </span>
     );
   }
@@ -150,8 +164,10 @@ export default function BuildTable() {
           className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-magenta/40 bg-white"
         >
           <option value="">All Statuses</option>
-          <option value="success">Success</option>
+          <option value="completed">Success</option>
           <option value="failed">Failed</option>
+          <option value="paused">Paused</option>
+          <option value="running">Running</option>
         </select>
       </div>
 

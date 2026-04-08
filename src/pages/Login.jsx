@@ -27,7 +27,7 @@ export default function Login() {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-magenta tracking-wide">VO360</h1>
-          <p className="text-gray-500 text-sm mt-1">Sub-Account Builder</p>
+          <p className="text-gray-500 text-sm mt-1">Client Onboarding Hub</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
