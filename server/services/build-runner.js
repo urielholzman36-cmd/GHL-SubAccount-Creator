@@ -159,13 +159,24 @@ export class BuildRunner {
   }
 
   async _runStepLogic(build, stepNumber, state, ctx) {
+    const dryRun = process.env.DRY_RUN_GHL === '1';
     switch (stepNumber) {
       case 1: return await this._step1CreateLocation(build);
-      case 2: return await this._step2ProvisionPhone(build, state, build.id);
-      case 3: return await this._step3SetCustomValues(build, state);
-      case 4: return await this._step4CreatePipeline(build, state);
-      case 5: return await this._step5CreateUser(build, state);
-      case 6: return await this._step6SendWelcomeComms(build, state);
+      case 2:
+        if (dryRun) return { phoneNumberId: 'dry-run', phoneNumber: 'dry-run' };
+        return await this._step2ProvisionPhone(build, state, build.id);
+      case 3:
+        if (dryRun) return { customValuesSet: true };
+        return await this._step3SetCustomValues(build, state);
+      case 4:
+        if (dryRun) return { pipelineId: 'dry-run' };
+        return await this._step4CreatePipeline(build, state);
+      case 5:
+        if (dryRun) return { userId: 'dry-run' };
+        return await this._step5CreateUser(build, state);
+      case 6:
+        if (dryRun) return { contactId: 'dry-run', welcomeEmailMessageId: 'dry-run', welcomeSmsMessageId: 'dry-run' };
+        return await this._step6SendWelcomeComms(build, state);
       case 7: return await this._step7WebsiteCreationStub(build, state, ctx);
       default: throw new Error(`Unknown step number: ${stepNumber}`);
     }
@@ -207,6 +218,9 @@ export class BuildRunner {
 
   async _step2ProvisionPhone(build, state, buildId) {
     const locationId = state.locationId;
+    if (process.env.SKIP_PHONE_PROVISION === '1') {
+      return { phoneNumberId: 'skipped', phoneNumber: 'skipped', phoneSkipped: true };
+    }
     const areaCodesToTry = [build.area_code, ...getNearbyAreaCodes(build.area_code)];
 
     let lastError = null;
