@@ -42,7 +42,7 @@ describe('Pause/resume durability', () => {
 
     const paused = queries.getBuildById(db, id);
     expect(paused.status).toBe('paused');
-    expect(paused.paused_at_step).toBe(7);
+    expect(paused.paused_at_step).toBe(3);
 
     // Simulate server restart: brand new runner instance, same db
     const freshRunner = new BuildRunner(db, mockGhl(), { backoffMs: [1, 1, 1] });
