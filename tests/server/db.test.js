@@ -188,4 +188,18 @@ describe('Database', () => {
       expect(row.pause_context).toBeNull();
     });
   });
+
+  describe('M2a schema extensions', () => {
+    it('builds table has all new M2a columns', () => {
+      const cols = db.prepare("PRAGMA table_info(builds)").all().map((c) => c.name);
+      expect(cols).toContain('industry_text');
+      expect(cols).toContain('target_audience');
+      expect(cols).toContain('logo_path');
+      expect(cols).toContain('brand_colors');
+      expect(cols).toContain('tenweb_prompt');
+      expect(cols).toContain('wp_url');
+      expect(cols).toContain('wp_username');
+      expect(cols).toContain('wp_password_encrypted');
+    });
+  });
 });

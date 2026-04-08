@@ -59,4 +59,22 @@ export function initializeDb(db) {
   if (!stepCols.includes('phase')) {
     db.exec('ALTER TABLE build_steps ADD COLUMN phase INTEGER NOT NULL DEFAULT 1');
   }
+
+  // M2a additive migrations (safe to run repeatedly)
+  const m2aCols = [
+    ['industry_text', 'TEXT'],
+    ['target_audience', 'TEXT'],
+    ['logo_path', 'TEXT'],
+    ['brand_colors', 'TEXT'],
+    ['tenweb_prompt', 'TEXT'],
+    ['wp_url', 'TEXT'],
+    ['wp_username', 'TEXT'],
+    ['wp_password_encrypted', 'TEXT'],
+  ];
+  const buildCols2 = db.prepare("PRAGMA table_info(builds)").all().map((c) => c.name);
+  for (const [name, type] of m2aCols) {
+    if (!buildCols2.includes(name)) {
+      db.exec(`ALTER TABLE builds ADD COLUMN ${name} ${type}`);
+    }
+  }
 }
