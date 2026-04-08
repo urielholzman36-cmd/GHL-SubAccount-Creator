@@ -26,6 +26,9 @@ const INITIAL_FORM = {
   websiteUrl: '',
   firstName: '',
   lastName: '',
+  industryText: '',
+  targetAudience: '',
+  brandColors: [],
 };
 
 function validate(fields) {
@@ -68,6 +71,9 @@ function validate(fields) {
     }
   }
 
+  if (!fields.industryText || !fields.industryText.trim()) errors.industryText = 'Industry is required.';
+  if (!fields.targetAudience || !fields.targetAudience.trim()) errors.targetAudience = 'Target audience is required.';
+
   return errors;
 }
 
@@ -105,6 +111,64 @@ export default function BuildForm({ onBuildStarted }) {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [globalError, setGlobalError] = useState('');
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+
+  async function handleLogoChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setLogoFile(null);
+      setLogoPreview(null);
+      setForm((prev) => ({ ...prev, brandColors: [] }));
+      return;
+    }
+    setLogoFile(file);
+
+    const url = URL.createObjectURL(file);
+    setLogoPreview(url);
+
+    try {
+      const ColorThief = (await import('colorthief')).default;
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.src = url;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+      const thief = new ColorThief();
+      const palette = thief.getPalette(img, 5) || [];
+      const hexes = palette.map(([r, g, b]) => {
+        const h = (n) => n.toString(16).padStart(2, '0');
+        return `#${h(r)}${h(g)}${h(b)}`;
+      });
+      setForm((prev) => ({ ...prev, brandColors: hexes }));
+    } catch (err) {
+      console.error('Color extraction failed:', err);
+      setForm((prev) => ({ ...prev, brandColors: [] }));
+    }
+  }
+
+  function removeColor(idx) {
+    setForm((prev) => ({
+      ...prev,
+      brandColors: prev.brandColors.filter((_, i) => i !== idx),
+    }));
+  }
+
+  function addColor() {
+    setForm((prev) => ({
+      ...prev,
+      brandColors: [...prev.brandColors, '#000000'],
+    }));
+  }
+
+  function updateColor(idx, value) {
+    setForm((prev) => ({
+      ...prev,
+      brandColors: prev.brandColors.map((c, i) => (i === idx ? value : c)),
+    }));
+  }
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -133,26 +197,34 @@ export default function BuildForm({ onBuildStarted }) {
 
     setSubmitting(true);
     try {
-      const payload = {
-        business_name: form.businessName,
-        business_phone: form.businessPhone,
-        business_email: form.businessEmail,
-        address: form.address,
-        city: form.city,
-        state: form.state,
-        zip: form.zip,
-        country: form.country,
-        industry: form.industry,
-        timezone: form.timezone,
-        area_code: form.areaCode,
-        website_url: form.websiteUrl,
-        owner_first_name: form.firstName,
-        owner_last_name: form.lastName,
-      };
+      if (!logoFile) {
+        setErrors((prev) => ({ ...prev, logo: 'Logo is required.' }));
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('business_name', form.businessName);
+      formData.append('business_phone', form.businessPhone);
+      formData.append('business_email', form.businessEmail);
+      formData.append('address', form.address);
+      formData.append('city', form.city);
+      formData.append('state', form.state);
+      formData.append('zip', form.zip);
+      formData.append('country', form.country);
+      formData.append('industry', form.industry);
+      formData.append('timezone', form.timezone);
+      formData.append('area_code', form.areaCode);
+      formData.append('website_url', form.websiteUrl || '');
+      formData.append('owner_first_name', form.firstName);
+      formData.append('owner_last_name', form.lastName);
+      formData.append('industry_text', form.industryText);
+      formData.append('target_audience', form.targetAudience);
+      formData.append('brand_colors', JSON.stringify(form.brandColors || []));
+      formData.append('logo', logoFile);
+
       const res = await fetch('/api/builds', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: formData,
       });
 
       if (res.status === 201) {
@@ -327,6 +399,79 @@ export default function BuildForm({ onBuildStarted }) {
                 onBlur={handleBlur}
                 placeholder="https://acme.com"
               />
+            </Field>
+          </div>
+        </section>
+
+        {/* Section: Website & Branding */}
+        <section>
+          <SectionHeader title="Website & Branding" />
+          <div className="grid grid-cols-1 gap-4">
+            <Field label="Industry" error={errors.industryText}>
+              <input
+                type="text"
+                className={inputClass}
+                name="industryText"
+                value={form.industryText}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                placeholder="e.g. Residential electrical contracting"
+              />
+            </Field>
+            <Field label="Target Audience" error={errors.targetAudience}>
+              <textarea
+                className={inputClass}
+                name="targetAudience"
+                rows={3}
+                value={form.targetAudience}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                placeholder="e.g. Homeowners aged 35-60 in San Diego County..."
+              />
+            </Field>
+            <Field label="Logo">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml"
+                onChange={handleLogoChange}
+                className="text-sm"
+              />
+              {logoPreview && (
+                <div className="mt-2">
+                  <img src={logoPreview} alt="Logo preview" className="h-20 border rounded" />
+                </div>
+              )}
+              {form.brandColors.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs text-gray-500 mb-1">Brand colors (click to edit, × to remove)</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {form.brandColors.map((c, i) => (
+                      <div key={i} className="relative">
+                        <input
+                          type="color"
+                          value={c}
+                          onChange={(e) => updateColor(i, e.target.value)}
+                          className="w-10 h-10 border rounded cursor-pointer"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeColor(i)}
+                          className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addColor}
+                      className="w-10 h-10 border border-dashed rounded text-gray-400 hover:border-gray-600 hover:text-gray-600"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              )}
             </Field>
           </div>
         </section>
