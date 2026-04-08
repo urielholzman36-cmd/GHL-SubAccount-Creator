@@ -3,6 +3,32 @@ import { v4 as uuidv4 } from 'uuid';
 import * as queries from '../db/queries.js';
 import { BuildRunner } from '../services/build-runner.js';
 import { GhlApi } from '../services/ghl-api.js';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LOGOS_DIR = path.resolve(__dirname, '../../data/logos');
+if (!fs.existsSync(LOGOS_DIR)) fs.mkdirSync(LOGOS_DIR, { recursive: true });
+
+const logoStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, LOGOS_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.png';
+    cb(null, `${req.buildId}${ext}`);
+  },
+});
+
+const uploadLogo = multer({
+  storage: logoStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error(`Unsupported logo type: ${file.mimetype}`));
+  },
+}).single('logo');
 
 // Map of buildId -> Set of SSE response objects
 const sseClients = new Map();
@@ -80,66 +106,104 @@ function validateBuild(body) {
 export function createBuildsRouter(db) {
   const router = Router();
 
-  // POST / — create a new build
-  router.post('/', async (req, res) => {
-    const errors = validateBuild(req.body);
-    if (errors.length > 0) {
-      return res.status(400).json({ error: 'Validation failed', details: errors });
-    }
+  // POST / — create a new build (multipart)
+  router.post('/', (req, res) => {
+    req.buildId = uuidv4();
 
-    const id = uuidv4();
-    const build = {
-      id,
-      business_name: req.body.business_name.trim(),
-      business_email: req.body.business_email.trim(),
-      business_phone: req.body.business_phone.trim(),
-      address: req.body.address?.trim() || '',
-      city: req.body.city?.trim() || '',
-      state: req.body.state?.trim() || '',
-      zip: req.body.zip?.trim() || '',
-      country: req.body.country?.trim() || 'US',
-      industry: req.body.industry,
-      timezone: req.body.timezone.trim(),
-      owner_first_name: req.body.owner_first_name.trim(),
-      owner_last_name: req.body.owner_last_name.trim(),
-      area_code: String(req.body.area_code).trim(),
-      website_url: req.body.website_url?.trim() || null,
-    };
+    uploadLogo(req, res, async (uploadErr) => {
+      if (uploadErr) {
+        return res.status(400).json({ error: 'Logo upload failed', details: uploadErr.message });
+      }
 
-    try {
-      queries.insertBuild(db, build);
-      queries.createBuildSteps(db, id);
-    } catch (err) {
-      return res.status(500).json({ error: 'Failed to create build record', details: err.message });
-    }
+      const body = req.body || {};
 
-    // Start BuildRunner asynchronously
-    const ghl = new GhlApi(process.env.GHL_AGENCY_API_KEY);
-    const runner = new BuildRunner(db, ghl);
+      let brandColorsJson = null;
+      if (body.brand_colors) {
+        try {
+          const parsed = JSON.parse(body.brand_colors);
+          if (Array.isArray(parsed)) brandColorsJson = JSON.stringify(parsed);
+        } catch (_) {
+          return res.status(400).json({ error: 'brand_colors must be a JSON array of hex strings' });
+        }
+      }
 
-    const emit = runnerEmit(id);
+      const errors = validateBuild(body);
+      if (!body.industry_text || !String(body.industry_text).trim()) {
+        errors.push('industry_text is required');
+      }
+      if (!body.target_audience || !String(body.target_audience).trim()) {
+        errors.push('target_audience is required');
+      }
+      if (!req.file) {
+        errors.push('logo file is required');
+      }
+      if (errors.length > 0) {
+        return res.status(400).json({ error: 'Validation failed', details: errors });
+      }
 
-    runner.run(id, emit).then(() => {
-      const finalBuild = queries.getBuildById(db, id);
-      if (finalBuild.status === 'completed') {
-        broadcastToBuild(id, 'build-complete', { id });
-      } else if (finalBuild.status === 'paused') {
-        // pause event already broadcast by runner
-      } else {
+      const id = req.buildId;
+      const build = {
+        id,
+        business_name: body.business_name.trim(),
+        business_email: body.business_email.trim(),
+        business_phone: body.business_phone.trim(),
+        address: body.address?.trim() || '',
+        city: body.city?.trim() || '',
+        state: body.state?.trim() || '',
+        zip: body.zip?.trim() || '',
+        country: body.country?.trim() || 'US',
+        industry: body.industry || 'general',
+        timezone: body.timezone.trim(),
+        owner_first_name: body.owner_first_name.trim(),
+        owner_last_name: body.owner_last_name.trim(),
+        area_code: String(body.area_code).trim(),
+        website_url: body.website_url?.trim() || null,
+      };
+
+      try {
+        queries.insertBuild(db, build);
+        queries.createBuildSteps(db, id);
+
+        const logoPath = req.file ? path.relative(path.resolve(__dirname, '../..'), req.file.path) : null;
+        db.prepare(
+          `UPDATE builds SET industry_text = ?, target_audience = ?, logo_path = ?, brand_colors = ? WHERE id = ?`
+        ).run(
+          body.industry_text.trim(),
+          body.target_audience.trim(),
+          logoPath,
+          brandColorsJson,
+          id
+        );
+      } catch (err) {
+        return res.status(500).json({ error: 'Failed to create build record', details: err.message });
+      }
+
+      const ghl = new GhlApi(process.env.GHL_AGENCY_API_KEY);
+      const runner = new BuildRunner(db, ghl);
+      const emit = runnerEmit(id);
+
+      runner.run(id, emit).then(() => {
+        const finalBuild = queries.getBuildById(db, id);
+        if (finalBuild.status === 'completed') {
+          broadcastToBuild(id, 'build-complete', { id });
+        } else if (finalBuild.status === 'paused') {
+          // pause event already broadcast by runner
+        } else {
+          const steps = queries.getBuildSteps(db, id);
+          const failedStep = steps.find((s) => s.status === 'failed');
+          broadcastToBuild(id, 'build-failed', {
+            id,
+            failedStep: failedStep || null,
+          });
+        }
+      }).catch(() => {
         const steps = queries.getBuildSteps(db, id);
         const failedStep = steps.find((s) => s.status === 'failed');
-        broadcastToBuild(id, 'build-failed', {
-          id,
-          failedStep: failedStep || null,
-        });
-      }
-    }).catch(() => {
-      const steps = queries.getBuildSteps(db, id);
-      const failedStep = steps.find((s) => s.status === 'failed');
-      broadcastToBuild(id, 'build-failed', { id, failedStep: failedStep || null });
-    });
+        broadcastToBuild(id, 'build-failed', { id, failedStep: failedStep || null });
+      });
 
-    res.status(201).json({ id });
+      res.status(201).json({ id });
+    });
   });
 
   // GET /:id/stream — SSE stream for a build
