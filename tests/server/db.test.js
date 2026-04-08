@@ -67,10 +67,10 @@ describe('Database', () => {
     queries.insertBuild(db, build);
     queries.createBuildSteps(db, 'test-uuid-456');
     const steps = queries.getBuildSteps(db, 'test-uuid-456');
-    expect(steps).toHaveLength(7);
+    expect(steps).toHaveLength(3);
     expect(steps[0].step_name).toBe('Create Sub-Account');
-    expect(steps[5].step_name).toBe('Send Welcome Comms');
-    expect(steps[6].step_name).toBe('Website Creation (Manual)');
+    expect(steps[1].step_name).toBe('Send Welcome Comms');
+    expect(steps[2].step_name).toBe('Website Creation (Manual)');
   });
 
   it('updates build step status', () => {
@@ -153,7 +153,7 @@ describe('Database', () => {
       expect(phaseCol.dflt_value).toBe('1');
     });
 
-    it('createBuildSteps inserts all 7 steps with correct phase numbers', () => {
+    it('createBuildSteps inserts all 3 steps with correct phase numbers', () => {
       queries.insertBuild(db, {
         id: 'b-phases', business_name: 'X', business_email: 'x@y.com', business_phone: '5551234567',
         address: '', city: '', state: '', zip: '', country: 'US',
@@ -162,10 +162,11 @@ describe('Database', () => {
       });
       queries.createBuildSteps(db, 'b-phases');
       const steps = queries.getBuildSteps(db, 'b-phases');
-      expect(steps).toHaveLength(7);
-      expect(steps.slice(0, 6).every((s) => s.phase === 1)).toBe(true);
-      expect(steps[6].phase).toBe(2);
-      expect(steps[6].step_name).toBe('Website Creation (Manual)');
+      expect(steps).toHaveLength(3);
+      expect(steps[0].phase).toBe(1);
+      expect(steps[1].phase).toBe(1);
+      expect(steps[2].phase).toBe(2);
+      expect(steps[2].step_name).toBe('Website Creation (Manual)');
     });
 
     it('setPauseState / clearPauseState persist on the builds row', () => {
