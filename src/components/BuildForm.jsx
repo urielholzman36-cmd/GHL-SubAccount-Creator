@@ -190,6 +190,9 @@ export default function BuildForm({ onBuildStarted }) {
     setGlobalError('');
 
     const allErrors = validate(form);
+    if (!logoFile) {
+      allErrors.logo = 'Logo is required.';
+    }
     if (Object.keys(allErrors).length > 0) {
       setErrors(allErrors);
       return;
@@ -197,11 +200,6 @@ export default function BuildForm({ onBuildStarted }) {
 
     setSubmitting(true);
     try {
-      if (!logoFile) {
-        setErrors((prev) => ({ ...prev, logo: 'Logo is required.' }));
-        return;
-      }
-
       const formData = new FormData();
       formData.append('business_name', form.businessName);
       formData.append('business_phone', form.businessPhone);
