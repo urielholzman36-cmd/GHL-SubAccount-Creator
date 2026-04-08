@@ -1,18 +1,10 @@
-import { createRequire } from 'module';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 import * as queries from '../db/queries.js';
-import { getStagesForIndustry } from './pipelines.js';
-import { getNearbyAreaCodes } from './phone-fallback.js';
-import { PHASES, getPhaseForStep } from './phases.config.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const snapshots = JSON.parse(
-  (await import('fs')).default.readFileSync(join(__dirname, '../config/snapshots.json'), 'utf8')
-);
+import { PHASES, getPhaseForStep, isStepOptional } from './phases.config.js';
 
 const DEFAULT_BACKOFF_MS = [1000, 2000, 4000];
 const MAX_RETRIES = 3;
+
+export const SNAPSHOT_ID = '4XHJuEPYsk1xeUKcmrL9';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -31,12 +23,6 @@ export class PauseSignal {
 }
 
 export class BuildRunner {
-  /**
-   * @param {import('better-sqlite3').Database} db
-   * @param {object} ghl - GHL API client (real or mock)
-   * @param {object} [options]
-   * @param {number[]} [options.backoffMs] - Override backoff delays for testing
-   */
   constructor(db, ghl, options = {}) {
     this.db = db;
     this.ghl = ghl;
@@ -119,6 +105,7 @@ export class BuildRunner {
 
   async _executeStep(build, stepNumber, state, emit, ctx) {
     const buildId = build.id;
+    const optional = isStepOptional(stepNumber);
 
     queries.updateStepStatus(this.db, buildId, stepNumber, 'running');
     emit({ type: 'step-update', step: stepNumber, status: 'running' });
@@ -143,59 +130,46 @@ export class BuildRunner {
         emit({ type: 'step-update', step: stepNumber, status: 'completed', duration_ms: durationMs });
         return;
       } catch (err) {
-        if (err && err.isPauseSignal) throw err; // Don't retry pauses
+        if (err && err.isPauseSignal) throw err; // don't retry pauses
         lastError = err;
         if (err.skipRetry) break;
       }
     }
 
     const durationMs = Date.now() - stepStart;
+    const errMsg = lastError?.message ?? 'Unknown error';
+
+    if (optional) {
+      queries.updateStepStatus(
+        this.db, buildId, stepNumber, 'warning', durationMs, errMsg, null
+      );
+      emit({
+        type: 'step-update',
+        step: stepNumber,
+        status: 'warning',
+        duration_ms: durationMs,
+        error: errMsg,
+      });
+      return;
+    }
+
     queries.updateStepStatus(
-      this.db, buildId, stepNumber, 'failed', durationMs,
-      lastError?.message ?? 'Unknown error', null
+      this.db, buildId, stepNumber, 'failed', durationMs, errMsg, null
     );
-    emit({ type: 'step-update', step: stepNumber, status: 'failed', error: lastError?.message });
+    emit({ type: 'step-update', step: stepNumber, status: 'failed', error: errMsg });
     throw lastError;
   }
 
   async _runStepLogic(build, stepNumber, state, ctx) {
-    const dryRun = process.env.DRY_RUN_GHL === '1';
     switch (stepNumber) {
       case 1: return await this._step1CreateLocation(build);
-      case 2:
-        if (dryRun) return { phoneNumberId: 'dry-run', phoneNumber: 'dry-run' };
-        return await this._step2ProvisionPhone(build, state, build.id);
-      case 3:
-        if (dryRun) return { customValuesSet: true };
-        return await this._step3SetCustomValues(build, state);
-      case 4:
-        if (dryRun) return { pipelineId: 'dry-run' };
-        return await this._step4CreatePipeline(build, state);
-      case 5:
-        if (dryRun) return { userId: 'dry-run' };
-        return await this._step5CreateUser(build, state);
-      case 6:
-        if (dryRun) return { contactId: 'dry-run', welcomeEmailMessageId: 'dry-run', welcomeSmsMessageId: 'dry-run' };
-        return await this._step6SendWelcomeComms(build, state);
-      case 7: return await this._step7WebsiteCreationStub(build, state, ctx);
+      case 2: return await this._step2SendWelcomeComms(build, state);
+      case 3: return await this._step3WebsiteCreationStub(build, state, ctx);
       default: throw new Error(`Unknown step number: ${stepNumber}`);
     }
   }
 
-  async _step7WebsiteCreationStub(build, state, ctx) {
-    if (!ctx.resumePayload) {
-      throw new PauseSignal(7, {
-        reason: 'stub_pause',
-        message: 'Click Continue to proceed (M1 stub).',
-      });
-    }
-    return { resumed: true, payload: ctx.resumePayload };
-  }
-
-  // ─── Step 1-6 implementations (unchanged) ─────────────────────────────────
-
   async _step1CreateLocation(build) {
-    const snapshot = snapshots[build.industry] || snapshots['general'];
     const locationData = {
       name: build.business_name,
       email: build.business_email,
@@ -207,7 +181,7 @@ export class BuildRunner {
       country: build.country,
       timezone: build.timezone,
       website: build.website_url,
-      snapshotId: snapshot.id,
+      snapshotId: SNAPSHOT_ID,
     };
 
     const response = await this.ghl.createLocation(locationData);
@@ -216,109 +190,34 @@ export class BuildRunner {
     return { locationId };
   }
 
-  async _step2ProvisionPhone(build, state, buildId) {
-    const locationId = state.locationId;
-    if (process.env.SKIP_PHONE_PROVISION === '1') {
-      return { phoneNumberId: 'skipped', phoneNumber: 'skipped', phoneSkipped: true };
-    }
-    const areaCodesToTry = [build.area_code, ...getNearbyAreaCodes(build.area_code)];
-
-    let lastError = null;
-    for (let i = 0; i < areaCodesToTry.length; i++) {
-      const code = areaCodesToTry[i];
-      try {
-        const response = await this.ghl.buyPhoneNumber(locationId, code);
-        return { phoneNumberId: response.phoneNumber.id, phoneNumber: response.phoneNumber.number };
-      } catch (err) {
-        lastError = err;
-        if (i > 0) {
-          queries.incrementStepRetry(this.db, buildId, 2);
-        }
-      }
-    }
-
-    const err = new Error(`Phone provisioning failed for all area codes: ${lastError?.message}`);
+  async _step2SendWelcomeComms(build, state) {
+    // Agency Private Integration Tokens (PIT) do not have scope to create
+    // contacts or send messages on behalf of sub-accounts. Verified against
+    // the live GHL v2 API on 2026-04-09: POST /contacts/ returns 401
+    // "The token is not authorized for this scope." and /oauth/locationToken
+    // also returns 401.
+    //
+    // This step is marked optional in phases.config, so throwing here will
+    // cause the runner to record status=warning and continue. Welcome comms
+    // must be sent manually from inside the sub-account until GHL exposes
+    // agency-level messaging scopes or we adopt the Marketplace OAuth flow.
+    const err = new Error(
+      'Welcome comms not available: agency private integration tokens cannot ' +
+      'send messages on behalf of sub-accounts. Send the welcome email and SMS ' +
+      'manually from inside the new sub-account.'
+    );
     err.skipRetry = true;
     throw err;
   }
 
-  async _step3SetCustomValues(build, state) {
-    const locationId = state.locationId;
-    const customValues = [
-      { key: 'business_name', value: build.business_name },
-      { key: 'business_email', value: build.business_email },
-      { key: 'business_phone', value: build.business_phone },
-      { key: 'owner_first_name', value: build.owner_first_name },
-      { key: 'owner_last_name', value: build.owner_last_name },
-      { key: 'website_url', value: build.website_url || '' },
-    ];
-
-    await this.ghl.setCustomValues(locationId, customValues);
-    return { customValuesSet: true };
-  }
-
-  async _step4CreatePipeline(build, state) {
-    const locationId = state.locationId;
-    const stages = getStagesForIndustry(build.industry);
-    const pipelineName = `${build.business_name} Pipeline`;
-
-    const response = await this.ghl.createPipeline(locationId, pipelineName, stages);
-    return { pipelineId: response.pipeline.id };
-  }
-
-  async _step5CreateUser(build, state) {
-    const locationId = state.locationId;
-
-    const response = await this.ghl.createUser(
-      locationId,
-      build.owner_first_name,
-      build.owner_last_name,
-      build.business_email
-    );
-    return { userId: response.user.id };
-  }
-
-  async _step6SendWelcomeComms(build, state) {
-    const locationId = state.locationId;
-
-    const contactResponse = await this.ghl.createContact(
-      locationId,
-      build.owner_first_name,
-      build.owner_last_name,
-      build.business_email,
-      build.business_phone
-    );
-    const contactId = contactResponse.contact.id;
-
-    const emailSubject = `Welcome to ${build.business_name} — Your Account is Ready`;
-    const emailBody =
-      `Hi ${build.owner_first_name},\n\n` +
-      `Your GoHighLevel sub-account for ${build.business_name} has been created and is ready to use.\n\n` +
-      `Business: ${build.business_name}\n` +
-      `Email: ${build.business_email}\n` +
-      `Phone: ${build.business_phone}\n\n` +
-      `Please check your email inbox for your GoHighLevel login invitation to get started.\n\n` +
-      `— VO360`;
-
-    const emailResponse = await this.ghl.sendMessage(
-      'Email',
-      locationId,
-      contactId,
-      emailBody,
-      emailSubject
-    );
-
-    const smsBody =
-      `Hi ${build.owner_first_name}! Your ${build.business_name} account is ready. ` +
-      `Check your email for the login invitation. — VO360`;
-
-    const smsResponse = await this.ghl.sendMessage('SMS', locationId, contactId, smsBody);
-
-    return {
-      contactId,
-      welcomeEmailMessageId: emailResponse.messageId,
-      welcomeSmsMessageId: smsResponse.messageId,
-    };
+  async _step3WebsiteCreationStub(build, state, ctx) {
+    if (!ctx.resumePayload) {
+      throw new PauseSignal(3, {
+        reason: 'stub_pause',
+        message: 'Click Continue to proceed (M1 stub).',
+      });
+    }
+    return { resumed: true, payload: ctx.resumePayload };
   }
 
   // ─── State reconstruction ─────────────────────────────────────────────────
