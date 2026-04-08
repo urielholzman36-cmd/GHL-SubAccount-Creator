@@ -26,6 +26,13 @@ function StepCircle({ status, stepNumber }) {
       </div>
     );
   }
+  if (status === 'warning') {
+    return (
+      <div className="w-7 h-7 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
+        <span className="text-white text-xs font-bold">!</span>
+      </div>
+    );
+  }
   if (status === 'failed') {
     return (
       <div className="w-7 h-7 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
@@ -42,7 +49,8 @@ function formatDuration(ms) {
 }
 
 function phaseStatusLabel(phase) {
-  if (phase.steps.every((s) => s.status === 'completed')) return 'Completed';
+  const done = (s) => s.status === 'completed' || s.status === 'warning';
+  if (phase.steps.every(done)) return 'Completed';
   if (phase.steps.some((s) => s.status === 'failed')) return 'Failed';
   if (phase.steps.some((s) => s.status === 'running')) return 'In Progress';
   if (phase.steps.every((s) => s.status === 'pending')) return 'Pending';
@@ -117,6 +125,7 @@ export default function ProgressTracker({ buildId, onRetry }) {
                       step.status === 'pending'   ? 'text-gray-500' :
                       step.status === 'running'   ? 'text-magenta' :
                       step.status === 'completed' ? 'text-gray-800' :
+                      step.status === 'warning'   ? 'text-gray-800' :
                       step.status === 'failed'    ? 'text-gray-800' : 'text-gray-500'
                     }`}>
                       {step.name}
@@ -128,6 +137,16 @@ export default function ProgressTracker({ buildId, onRetry }) {
                       <p className="text-xs text-green-600 mt-0.5">
                         Completed · {formatDuration(step.duration_ms)}
                       </p>
+                    )}
+                    {step.status === 'warning' && (
+                      <div className="mt-1">
+                        <p className="text-xs text-yellow-700 font-semibold">
+                          Completed with warning
+                        </p>
+                        {step.error && (
+                          <p className="text-xs text-yellow-600 mt-0.5 break-words">{step.error}</p>
+                        )}
+                      </div>
                     )}
                     {step.status === 'failed' && (
                       <div className="mt-1">
