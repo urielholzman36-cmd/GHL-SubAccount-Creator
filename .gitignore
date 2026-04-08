@@ -3,3 +3,6 @@ dist/
 .env
 *.db
 .superpowers/
+
+# Uploaded client logos (M2a)
+data/logos/
