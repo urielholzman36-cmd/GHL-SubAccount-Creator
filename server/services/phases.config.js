@@ -4,18 +4,14 @@ export const PHASES = [
     name: 'GHL Sub-Account Setup',
     steps: [
       { number: 1, name: 'Create Sub-Account' },
-      { number: 2, name: 'Provision Phone' },
-      { number: 3, name: 'Set Custom Values' },
-      { number: 4, name: 'Create Pipeline' },
-      { number: 5, name: 'Create Admin User' },
-      { number: 6, name: 'Send Welcome Comms' },
+      { number: 2, name: 'Send Welcome Comms', optional: true },
     ],
   },
   {
     id: 2,
     name: 'Website Build',
     steps: [
-      { number: 7, name: 'Website Creation (Manual)', pausesForManualInput: true },
+      { number: 3, name: 'Website Creation (Manual)', pausesForManualInput: true },
     ],
   },
 ];
@@ -34,6 +30,11 @@ export function getPhaseForStep(stepNumber) {
 export function getStepName(stepNumber) {
   const step = getAllSteps().find((s) => s.number === stepNumber);
   return step ? step.name : null;
+}
+
+export function isStepOptional(stepNumber) {
+  const step = getAllSteps().find((s) => s.number === stepNumber);
+  return step ? step.optional === true : false;
 }
 
 export function getTotalStepCount() {
