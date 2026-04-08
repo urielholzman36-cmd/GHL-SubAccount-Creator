@@ -24,6 +24,14 @@ function broadcastToBuild(buildId, event, data) {
   }
 }
 
+function runnerEmit(buildId) {
+  return (event) => {
+    const { type, ...rest } = event;
+    if (!type) return;
+    broadcastToBuild(buildId, type, rest);
+  };
+}
+
 const VALID_INDUSTRIES = ['construction', 'plumbing', 'electrical', 'cleaning', 'general'];
 
 function validateBuild(body) {
@@ -109,14 +117,14 @@ export function createBuildsRouter(db) {
     const ghl = new GhlApi(process.env.GHL_AGENCY_API_KEY);
     const runner = new BuildRunner(db, ghl);
 
-    const emit = (event) => {
-      broadcastToBuild(id, 'step-update', event);
-    };
+    const emit = runnerEmit(id);
 
     runner.run(id, emit).then(() => {
       const finalBuild = queries.getBuildById(db, id);
       if (finalBuild.status === 'completed') {
         broadcastToBuild(id, 'build-complete', { id });
+      } else if (finalBuild.status === 'paused') {
+        // pause event already broadcast by runner
       } else {
         const steps = queries.getBuildSteps(db, id);
         const failedStep = steps.find((s) => s.status === 'failed');
@@ -151,9 +159,9 @@ export function createBuildsRouter(db) {
     const steps = queries.getBuildSteps(db, id);
     for (const step of steps) {
       sendSseEvent(res, 'step-update', {
-        stepNumber: step.step_number,
+        step: step.step_number,
         status: step.status,
-        durationMs: step.duration_ms,
+        duration_ms: step.duration_ms,
         error: step.error_message,
       });
     }
@@ -170,6 +178,14 @@ export function createBuildsRouter(db) {
       sendSseEvent(res, 'build-failed', { id, failedStep: failedStep || null });
       res.end();
       return;
+    }
+
+    if (build.status === 'paused') {
+      sendSseEvent(res, 'build-paused', {
+        step: build.paused_at_step,
+        context: build.pause_context ? JSON.parse(build.pause_context) : null,
+      });
+      // Keep connection open so client receives live updates after resume
     }
 
     // Register client for live updates
@@ -217,8 +233,8 @@ export function createBuildsRouter(db) {
     const { id, step } = req.params;
     const stepNumber = parseInt(step);
 
-    if (isNaN(stepNumber) || stepNumber < 1 || stepNumber > 6) {
-      return res.status(400).json({ error: 'step must be a number between 1 and 6' });
+    if (isNaN(stepNumber) || stepNumber < 1 || stepNumber > 7) {
+      return res.status(400).json({ error: 'step must be a number between 1 and 7' });
     }
 
     const build = queries.getBuildById(db, id);
@@ -232,15 +248,14 @@ export function createBuildsRouter(db) {
 
     const ghl = new GhlApi(process.env.GHL_AGENCY_API_KEY);
     const runner = new BuildRunner(db, ghl);
-
-    const emit = (event) => {
-      broadcastToBuild(id, 'step-update', event);
-    };
+    const emit = runnerEmit(id);
 
     runner.retryFromStep(id, stepNumber, emit).then(() => {
       const finalBuild = queries.getBuildById(db, id);
       if (finalBuild.status === 'completed') {
         broadcastToBuild(id, 'build-complete', { id });
+      } else if (finalBuild.status === 'paused') {
+        // pause event already broadcast
       } else {
         const steps = queries.getBuildSteps(db, id);
         const failedStep = steps.find((s) => s.status === 'failed');
@@ -253,6 +268,37 @@ export function createBuildsRouter(db) {
     });
 
     res.json({ ok: true, id, retryingFromStep: stepNumber });
+  });
+
+  // POST /:id/resume — resume a paused build
+  router.post('/:id/resume', async (req, res) => {
+    const { id } = req.params;
+    const build = queries.getBuildById(db, id);
+    if (!build) return res.status(404).json({ error: 'Build not found' });
+    if (build.status !== 'paused') {
+      return res.status(400).json({ error: 'Build is not paused' });
+    }
+
+    const ghl = new GhlApi(process.env.GHL_AGENCY_API_KEY);
+    const runner = new BuildRunner(db, ghl);
+    const emit = runnerEmit(id);
+
+    runner.resume(id, req.body || {}, emit).then(() => {
+      const finalBuild = queries.getBuildById(db, id);
+      if (finalBuild.status === 'completed') {
+        broadcastToBuild(id, 'build-complete', { id });
+      } else if (finalBuild.status === 'failed') {
+        const steps = queries.getBuildSteps(db, id);
+        const failedStep = steps.find((s) => s.status === 'failed');
+        broadcastToBuild(id, 'build-failed', { id, failedStep: failedStep || null });
+      }
+    }).catch(() => {
+      const steps = queries.getBuildSteps(db, id);
+      const failedStep = steps.find((s) => s.status === 'failed');
+      broadcastToBuild(id, 'build-failed', { id, failedStep: failedStep || null });
+    });
+
+    res.status(202).json({ ok: true, id });
   });
 
   return router;
