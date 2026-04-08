@@ -1,13 +1,5 @@
 import { useState } from 'react';
 
-const INDUSTRIES = [
-  { value: 'construction', label: 'Construction' },
-  { value: 'plumbing', label: 'Plumbing' },
-  { value: 'electrical', label: 'Electrical' },
-  { value: 'cleaning', label: 'Cleaning' },
-  { value: 'general', label: 'General' },
-];
-
 const TIMEZONES = [
   'America/New_York',
   'America/Chicago',
@@ -28,7 +20,7 @@ const INITIAL_FORM = {
   state: '',
   zip: '',
   country: 'US',
-  industry: '',
+  industry: 'general',
   timezone: '',
   areaCode: '',
   websiteUrl: '',
@@ -43,7 +35,6 @@ function validate(fields) {
   if (!fields.businessName.trim()) errors.businessName = 'Business name is required.';
   if (!fields.firstName.trim()) errors.firstName = 'First name is required.';
   if (!fields.lastName.trim()) errors.lastName = 'Last name is required.';
-  if (!fields.industry) errors.industry = 'Industry is required.';
   if (!fields.timezone) errors.timezone = 'Timezone is required.';
 
   // Email
@@ -298,21 +289,6 @@ export default function BuildForm({ onBuildStarted }) {
         <section>
           <SectionHeader title="Configuration" />
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Industry" error={errors.industry}>
-              <select
-                className={inputClass}
-                name="industry"
-                value={form.industry}
-                onChange={handleChange}
-                onBlur={handleBlur}
-              >
-                <option value="">Select industry…</option>
-                {INDUSTRIES.map((ind) => (
-                  <option key={ind.value} value={ind.value}>{ind.label}</option>
-                ))}
-              </select>
-            </Field>
-
             <Field label="Timezone" error={errors.timezone}>
               <select
                 className={inputClass}
