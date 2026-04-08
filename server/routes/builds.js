@@ -233,8 +233,8 @@ export function createBuildsRouter(db) {
     const { id, step } = req.params;
     const stepNumber = parseInt(step);
 
-    if (isNaN(stepNumber) || stepNumber < 1 || stepNumber > 7) {
-      return res.status(400).json({ error: 'step must be a number between 1 and 7' });
+    if (isNaN(stepNumber) || stepNumber < 1 || stepNumber > 3) {
+      return res.status(400).json({ error: 'step must be a number between 1 and 3' });
     }
 
     const build = queries.getBuildById(db, id);
