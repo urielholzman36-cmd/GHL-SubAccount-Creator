@@ -31,9 +31,14 @@ describe('Pause/resume durability', () => {
   let db, runner;
 
   beforeEach(() => {
+    process.env.CREDENTIALS_KEY = 'a'.repeat(64);
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-fake';
     db = createTestDb();
     initializeDb(db);
-    runner = new BuildRunner(db, mockGhl(), { backoffMs: [1, 1, 1] });
+    runner = new BuildRunner(db, mockGhl(), {
+      backoffMs: [1, 1, 1],
+      generatePromptImpl: async () => 'fake prompt',
+    });
   });
 
   it('persists pause state across runner instances (simulates server restart)', async () => {
@@ -42,11 +47,18 @@ describe('Pause/resume durability', () => {
 
     const paused = queries.getBuildById(db, id);
     expect(paused.status).toBe('paused');
-    expect(paused.paused_at_step).toBe(3);
+    expect(paused.paused_at_step).toBe(4);
 
     // Simulate server restart: brand new runner instance, same db
-    const freshRunner = new BuildRunner(db, mockGhl(), { backoffMs: [1, 1, 1] });
-    await freshRunner.resume(id, { ack: true }, () => {});
+    const freshRunner = new BuildRunner(db, mockGhl(), {
+      backoffMs: [1, 1, 1],
+      generatePromptImpl: async () => 'fake prompt',
+    });
+    await freshRunner.resume(id, {
+      wp_url: 'https://example.com',
+      wp_username: 'admin',
+      wp_password: 'fake-pass',
+    }, () => {});
 
     const done = queries.getBuildById(db, id);
     expect(done.status).toBe('completed');

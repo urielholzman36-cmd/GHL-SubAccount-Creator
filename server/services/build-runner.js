@@ -1,5 +1,7 @@
 import * as queries from '../db/queries.js';
 import { PHASES, getPhaseForStep, isStepOptional } from './phases.config.js';
+import { generatePrompt as realGeneratePrompt } from './prompt-generator.js';
+import { encrypt } from './crypto.js';
 
 const DEFAULT_BACKOFF_MS = [1000, 2000, 4000];
 const MAX_RETRIES = 3;
@@ -10,10 +12,6 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Signal thrown by a step when it needs to pause for manual input.
- * The runner catches it, persists pause state, and exits cleanly.
- */
 export class PauseSignal {
   constructor(stepNumber, context) {
     this.stepNumber = stepNumber;
@@ -27,6 +25,9 @@ export class BuildRunner {
     this.db = db;
     this.ghl = ghl;
     this.backoffMs = options.backoffMs || DEFAULT_BACKOFF_MS;
+    this.generatePromptImpl =
+      options.generatePromptImpl ||
+      ((build) => realGeneratePrompt(build, { apiKey: process.env.ANTHROPIC_API_KEY }));
   }
 
   async run(buildId, emit) {
@@ -67,8 +68,6 @@ export class BuildRunner {
     }
     await this._runFromStep(build, fromStep, startTime, emit, { resumePayload: null });
   }
-
-  // ─── Core loop ────────────────────────────────────────────────────────────
 
   async _runFromStep(build, fromStep, startTime, emit, ctx) {
     const state = await this._getStateFromPriorSteps(build.id, fromStep);
@@ -130,7 +129,7 @@ export class BuildRunner {
         emit({ type: 'step-update', step: stepNumber, status: 'completed', duration_ms: durationMs });
         return;
       } catch (err) {
-        if (err && err.isPauseSignal) throw err; // don't retry pauses
+        if (err && err.isPauseSignal) throw err;
         lastError = err;
         if (err.skipRetry) break;
       }
@@ -161,10 +160,12 @@ export class BuildRunner {
   }
 
   async _runStepLogic(build, stepNumber, state, ctx) {
+    const freshBuild = queries.getBuildById(this.db, build.id) || build;
     switch (stepNumber) {
-      case 1: return await this._step1CreateLocation(build);
-      case 2: return await this._step2SendWelcomeComms(build, state);
-      case 3: return await this._step3WebsiteCreationStub(build, state, ctx);
+      case 1: return await this._step1CreateLocation(freshBuild);
+      case 2: return await this._step2SendWelcomeComms(freshBuild, state);
+      case 3: return await this._step3GeneratePrompt(freshBuild, state);
+      case 4: return await this._step4WebsiteCreationManual(freshBuild, state, ctx);
       default: throw new Error(`Unknown step number: ${stepNumber}`);
     }
   }
@@ -191,16 +192,6 @@ export class BuildRunner {
   }
 
   async _step2SendWelcomeComms(build, state) {
-    // Agency Private Integration Tokens (PIT) do not have scope to create
-    // contacts or send messages on behalf of sub-accounts. Verified against
-    // the live GHL v2 API on 2026-04-09: POST /contacts/ returns 401
-    // "The token is not authorized for this scope." and /oauth/locationToken
-    // also returns 401.
-    //
-    // This step is marked optional in phases.config, so throwing here will
-    // cause the runner to record status=warning and continue. Welcome comms
-    // must be sent manually from inside the sub-account until GHL exposes
-    // agency-level messaging scopes or we adopt the Marketplace OAuth flow.
     const err = new Error(
       'Welcome comms not available: agency private integration tokens cannot ' +
       'send messages on behalf of sub-accounts. Send the welcome email and SMS ' +
@@ -210,17 +201,45 @@ export class BuildRunner {
     throw err;
   }
 
-  async _step3WebsiteCreationStub(build, state, ctx) {
-    if (!ctx.resumePayload) {
-      throw new PauseSignal(3, {
-        reason: 'stub_pause',
-        message: 'Click Continue to proceed (M1 stub).',
-      });
+  async _step3GeneratePrompt(build, state) {
+    const promptText = await this.generatePromptImpl(build);
+    if (!promptText || typeof promptText !== 'string') {
+      throw new Error('generatePromptImpl returned empty response');
     }
-    return { resumed: true, payload: ctx.resumePayload };
+    this.db.prepare('UPDATE builds SET tenweb_prompt = ? WHERE id = ?').run(promptText, build.id);
+    return { tenwebPromptGenerated: true };
   }
 
-  // ─── State reconstruction ─────────────────────────────────────────────────
+  async _step4WebsiteCreationManual(build, state, ctx) {
+    if (!ctx.resumePayload) {
+      const row = queries.getBuildById(this.db, build.id);
+      throw new PauseSignal(4, {
+        reason: 'awaiting_website',
+        prompt: row.tenweb_prompt || '',
+        message:
+          'Paste the prompt into 10Web, wait for the site to build, then enter ' +
+          'the WordPress URL, username, and application password below and click Continue.',
+      });
+    }
+
+    const { wp_url, wp_username, wp_password } = ctx.resumePayload;
+    if (
+      !wp_url || typeof wp_url !== 'string' || !wp_url.trim() ||
+      !wp_username || typeof wp_username !== 'string' || !wp_username.trim() ||
+      !wp_password || typeof wp_password !== 'string' || !wp_password.trim()
+    ) {
+      const err = new Error('Missing WordPress credentials: wp_url, wp_username, and wp_password are all required');
+      err.skipRetry = true;
+      throw err;
+    }
+
+    const encrypted = encrypt(wp_password);
+    this.db.prepare(
+      'UPDATE builds SET wp_url = ?, wp_username = ?, wp_password_encrypted = ? WHERE id = ?'
+    ).run(wp_url.trim(), wp_username.trim(), encrypted, build.id);
+
+    return { credentialsStored: true };
+  }
 
   async _getStateFromPriorSteps(buildId, fromStep) {
     const build = queries.getBuildById(this.db, buildId);
@@ -239,7 +258,6 @@ export class BuildRunner {
           const data = JSON.parse(step.api_response);
           Object.assign(state, data);
         } catch (_) {
-          // ignore malformed JSON
         }
       }
     }
