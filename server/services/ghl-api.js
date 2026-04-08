@@ -1,8 +1,20 @@
 const BASE_URL = 'https://services.leadconnectorhq.com';
 
 export class GhlApi {
-  constructor(apiKey) {
+  constructor(apiKey, companyId = null) {
     this.apiKey = apiKey;
+    this.companyId = companyId || process.env.GHL_COMPANY_ID || null;
+  }
+
+  async getCompanyId() {
+    if (this.companyId) return this.companyId;
+    // Discover companyId from an existing location
+    const data = await this.request('GET', '/locations/search?limit=1');
+    if (data.locations && data.locations.length > 0) {
+      this.companyId = data.locations[0].companyId;
+      return this.companyId;
+    }
+    throw new Error('Unable to determine companyId: no existing locations found');
   }
 
   async request(method, path, body = null, version = '2021-07-28') {
@@ -25,7 +37,13 @@ export class GhlApi {
     return data;
   }
 
-  async createLocation(locationData) { return this.request('POST', '/locations/', locationData); }
+  async createLocation(locationData) {
+    const companyId = await this.getCompanyId();
+    const body = { ...locationData, companyId };
+    const data = await this.request('POST', '/locations/', body);
+    // Wrap in { location } shape expected by BuildRunner and tests
+    return { location: data };
+  }
   async buyPhoneNumber(locationId, areaCode) { return this.request('POST', '/phone-numbers/buy', { locationId, areaCode, capabilities: ['sms', 'voice', 'mms'] }); }
   async setCustomValues(locationId, customValues) { return this.request('POST', `/locations/${locationId}/customValues`, { customValues }); }
   async createPipeline(locationId, name, stages) { return this.request('POST', '/opportunities/pipelines', { locationId, name, stages }); }
