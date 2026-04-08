@@ -6,18 +6,14 @@ const DEFAULT_PHASES = [
     name: 'GHL Sub-Account Setup',
     steps: [
       { step: 1, name: 'Create Sub-Account' },
-      { step: 2, name: 'Provision Phone' },
-      { step: 3, name: 'Set Custom Values' },
-      { step: 4, name: 'Create Pipeline' },
-      { step: 5, name: 'Create Admin User' },
-      { step: 6, name: 'Send Welcome Comms' },
+      { step: 2, name: 'Send Welcome Comms' },
     ],
   },
   {
     id: 2,
     name: 'Website Build',
     steps: [
-      { step: 7, name: 'Website Creation (Manual)' },
+      { step: 3, name: 'Website Creation (Manual)' },
     ],
   },
 ];
