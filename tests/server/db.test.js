@@ -67,9 +67,10 @@ describe('Database', () => {
     queries.insertBuild(db, build);
     queries.createBuildSteps(db, 'test-uuid-456');
     const steps = queries.getBuildSteps(db, 'test-uuid-456');
-    expect(steps).toHaveLength(6);
+    expect(steps).toHaveLength(7);
     expect(steps[0].step_name).toBe('Create Sub-Account');
     expect(steps[5].step_name).toBe('Send Welcome Comms');
+    expect(steps[6].step_name).toBe('Website Creation (Manual)');
   });
 
   it('updates build step status', () => {
@@ -136,5 +137,54 @@ describe('Database', () => {
     queries.setSetting(db, 'password_hash', 'hashed_value');
     const result = queries.getSetting(db, 'password_hash');
     expect(result).toBe('hashed_value');
+  });
+
+  describe('M1 schema extensions', () => {
+    it('builds table has paused_at_step and pause_context columns', () => {
+      const cols = db.prepare("PRAGMA table_info(builds)").all().map((c) => c.name);
+      expect(cols).toContain('paused_at_step');
+      expect(cols).toContain('pause_context');
+    });
+
+    it('build_steps table has phase column defaulting to 1', () => {
+      const cols = db.prepare("PRAGMA table_info(build_steps)").all();
+      const phaseCol = cols.find((c) => c.name === 'phase');
+      expect(phaseCol).toBeDefined();
+      expect(phaseCol.dflt_value).toBe('1');
+    });
+
+    it('createBuildSteps inserts all 7 steps with correct phase numbers', () => {
+      queries.insertBuild(db, {
+        id: 'b-phases', business_name: 'X', business_email: 'x@y.com', business_phone: '5551234567',
+        address: '', city: '', state: '', zip: '', country: 'US',
+        industry: 'general', timezone: 'America/New_York',
+        owner_first_name: 'A', owner_last_name: 'B', area_code: '305', website_url: null,
+      });
+      queries.createBuildSteps(db, 'b-phases');
+      const steps = queries.getBuildSteps(db, 'b-phases');
+      expect(steps).toHaveLength(7);
+      expect(steps.slice(0, 6).every((s) => s.phase === 1)).toBe(true);
+      expect(steps[6].phase).toBe(2);
+      expect(steps[6].step_name).toBe('Website Creation (Manual)');
+    });
+
+    it('setPauseState / clearPauseState persist on the builds row', () => {
+      queries.insertBuild(db, {
+        id: 'b-pause', business_name: 'Y', business_email: 'y@z.com', business_phone: '5551234567',
+        address: '', city: '', state: '', zip: '', country: 'US',
+        industry: 'general', timezone: 'America/New_York',
+        owner_first_name: 'A', owner_last_name: 'B', area_code: '305', website_url: null,
+      });
+      queries.setPauseState(db, 'b-pause', 7, { reason: 'stub_pause' });
+      let row = queries.getBuildById(db, 'b-pause');
+      expect(row.status).toBe('paused');
+      expect(row.paused_at_step).toBe(7);
+      expect(JSON.parse(row.pause_context)).toEqual({ reason: 'stub_pause' });
+
+      queries.clearPauseState(db, 'b-pause');
+      row = queries.getBuildById(db, 'b-pause');
+      expect(row.paused_at_step).toBeNull();
+      expect(row.pause_context).toBeNull();
+    });
   });
 });

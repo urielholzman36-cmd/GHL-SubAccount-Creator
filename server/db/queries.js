@@ -1,11 +1,4 @@
-const STEP_NAMES = [
-  'Create Sub-Account',
-  'Provision Phone',
-  'Set Custom Values',
-  'Create Pipeline',
-  'Create Admin User',
-  'Send Welcome Comms',
-];
+import { getAllSteps, getPhaseForStep } from '../services/phases.config.js';
 
 export function insertBuild(db, build) {
   const stmt = db.prepare(`
@@ -16,11 +9,28 @@ export function insertBuild(db, build) {
 }
 
 export function createBuildSteps(db, buildId) {
-  const stmt = db.prepare(`INSERT INTO build_steps (build_id, step_number, step_name) VALUES (?, ?, ?)`);
+  const stmt = db.prepare(
+    `INSERT INTO build_steps (build_id, step_number, step_name, phase) VALUES (?, ?, ?, ?)`
+  );
+  const steps = getAllSteps();
   const insertMany = db.transaction(() => {
-    STEP_NAMES.forEach((name, i) => { stmt.run(buildId, i + 1, name); });
+    for (const s of steps) {
+      stmt.run(buildId, s.number, s.name, getPhaseForStep(s.number));
+    }
   });
   insertMany();
+}
+
+export function setPauseState(db, buildId, stepNumber, context) {
+  db.prepare(
+    `UPDATE builds SET status = 'paused', paused_at_step = ?, pause_context = ? WHERE id = ?`
+  ).run(stepNumber, JSON.stringify(context), buildId);
+}
+
+export function clearPauseState(db, buildId) {
+  db.prepare(
+    `UPDATE builds SET paused_at_step = NULL, pause_context = NULL WHERE id = ?`
+  ).run(buildId);
 }
 
 export function getBuildById(db, id) {

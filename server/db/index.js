@@ -45,4 +45,18 @@ export function initializeDb(db) {
       value TEXT NOT NULL
     );
   `);
+
+  // M1 additive migrations (safe to run repeatedly)
+  const buildCols = db.prepare("PRAGMA table_info(builds)").all().map((c) => c.name);
+  if (!buildCols.includes('paused_at_step')) {
+    db.exec('ALTER TABLE builds ADD COLUMN paused_at_step INTEGER');
+  }
+  if (!buildCols.includes('pause_context')) {
+    db.exec('ALTER TABLE builds ADD COLUMN pause_context TEXT');
+  }
+
+  const stepCols = db.prepare("PRAGMA table_info(build_steps)").all().map((c) => c.name);
+  if (!stepCols.includes('phase')) {
+    db.exec('ALTER TABLE build_steps ADD COLUMN phase INTEGER NOT NULL DEFAULT 1');
+  }
 }
