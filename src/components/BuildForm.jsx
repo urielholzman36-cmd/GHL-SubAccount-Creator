@@ -1,6 +1,12 @@
 import { useState } from 'react';
 
-const INDUSTRIES = ['Construction', 'Plumbing', 'Electrical', 'Cleaning', 'General'];
+const INDUSTRIES = [
+  { value: 'construction', label: 'Construction' },
+  { value: 'plumbing', label: 'Plumbing' },
+  { value: 'electrical', label: 'Electrical' },
+  { value: 'cleaning', label: 'Cleaning' },
+  { value: 'general', label: 'General' },
+];
 
 const TIMEZONES = [
   'America/New_York',
@@ -286,7 +292,7 @@ export default function BuildForm({ onBuildStarted }) {
               >
                 <option value="">Select industry…</option>
                 {INDUSTRIES.map((ind) => (
-                  <option key={ind} value={ind}>{ind}</option>
+                  <option key={ind.value} value={ind.value}>{ind.label}</option>
                 ))}
               </select>
             </Field>
