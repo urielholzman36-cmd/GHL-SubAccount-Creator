@@ -4,6 +4,7 @@ import { dirname, join } from 'path';
 import * as queries from '../db/queries.js';
 import { getStagesForIndustry } from './pipelines.js';
 import { getNearbyAreaCodes } from './phone-fallback.js';
+import { PHASES, getPhaseForStep } from './phases.config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const snapshots = JSON.parse(
@@ -15,6 +16,18 @@ const MAX_RETRIES = 3;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Signal thrown by a step when it needs to pause for manual input.
+ * The runner catches it, persists pause state, and exits cleanly.
+ */
+export class PauseSignal {
+  constructor(stepNumber, context) {
+    this.stepNumber = stepNumber;
+    this.context = context;
+    this.isPauseSignal = true;
+  }
 }
 
 export class BuildRunner {
@@ -30,73 +43,85 @@ export class BuildRunner {
     this.backoffMs = options.backoffMs || DEFAULT_BACKOFF_MS;
   }
 
-  /**
-   * Run all 6 build steps from step 1.
-   */
   async run(buildId, emit) {
     const build = queries.getBuildById(this.db, buildId);
     if (!build) throw new Error(`Build not found: ${buildId}`);
-
     queries.updateBuildStatus(this.db, buildId, 'running');
     const startTime = Date.now();
-
-    try {
-      await this._executeSteps(build, 1, emit);
-      queries.updateBuildStatus(this.db, buildId, 'completed', Date.now() - startTime);
-    } catch (err) {
-      queries.updateBuildStatus(this.db, buildId, 'failed', Date.now() - startTime);
-    }
+    await this._runFromStep(build, 1, startTime, emit, { resumePayload: null });
   }
 
-  /**
-   * Retry from a specific step number (1-based), re-running that step and all after.
-   */
+  async resume(buildId, resumePayload, emit) {
+    const build = queries.getBuildById(this.db, buildId);
+    if (!build) throw new Error(`Build not found: ${buildId}`);
+    if (build.status !== 'paused') throw new Error(`Build is not paused: ${buildId}`);
+
+    const fromStep = build.paused_at_step;
+    queries.clearPauseState(this.db, buildId);
+    queries.updateBuildStatus(this.db, buildId, 'running');
+    const startTime = Date.now();
+    await this._runFromStep(build, fromStep, startTime, emit, { resumePayload });
+  }
+
   async retryFromStep(buildId, fromStep, emit) {
     const build = queries.getBuildById(this.db, buildId);
     if (!build) throw new Error(`Build not found: ${buildId}`);
-
     queries.updateBuildStatus(this.db, buildId, 'running');
     const startTime = Date.now();
 
-    // Reset steps from fromStep onward back to pending
     const steps = queries.getBuildSteps(this.db, buildId);
     for (const step of steps) {
       if (step.step_number >= fromStep) {
-        this.db
-          .prepare(
-            `UPDATE build_steps SET status = 'pending', started_at = NULL, completed_at = NULL,
-             duration_ms = NULL, error_message = NULL, api_response = NULL, retry_count = 0
-             WHERE build_id = ? AND step_number = ?`
-          )
-          .run(buildId, step.step_number);
+        this.db.prepare(
+          `UPDATE build_steps SET status = 'pending', started_at = NULL, completed_at = NULL,
+           duration_ms = NULL, error_message = NULL, api_response = NULL, retry_count = 0
+           WHERE build_id = ? AND step_number = ?`
+        ).run(buildId, step.step_number);
       }
     }
-
-    try {
-      await this._executeSteps(build, fromStep, emit);
-      queries.updateBuildStatus(this.db, buildId, 'completed', Date.now() - startTime);
-    } catch (err) {
-      queries.updateBuildStatus(this.db, buildId, 'failed', Date.now() - startTime);
-    }
+    await this._runFromStep(build, fromStep, startTime, emit, { resumePayload: null });
   }
 
-  // ─── Internal helpers ──────────────────────────────────────────────────────
+  // ─── Core loop ────────────────────────────────────────────────────────────
 
-  async _executeSteps(build, fromStep, emit) {
-    // Reconstruct state from already-completed steps
+  async _runFromStep(build, fromStep, startTime, emit, ctx) {
     const state = await this._getStateFromPriorSteps(build.id, fromStep);
 
-    for (let stepNumber = fromStep; stepNumber <= 6; stepNumber++) {
-      await this._executeStep(build, stepNumber, state, emit);
+    try {
+      for (const phase of PHASES) {
+        const phaseSteps = phase.steps.filter((s) => s.number >= fromStep);
+        if (phaseSteps.length === 0) continue;
+
+        emit({ type: 'phase-start', phase: phase.id, name: phase.name });
+
+        for (const step of phaseSteps) {
+          await this._executeStep(build, step.number, state, emit, ctx);
+        }
+
+        emit({ type: 'phase-complete', phase: phase.id });
+      }
+
+      queries.updateBuildStatus(this.db, build.id, 'completed', Date.now() - startTime);
+    } catch (err) {
+      if (err && err.isPauseSignal) {
+        queries.setPauseState(this.db, build.id, err.stepNumber, err.context);
+        emit({
+          type: 'build-paused',
+          step: err.stepNumber,
+          phase: getPhaseForStep(err.stepNumber),
+          context: err.context,
+        });
+        return;
+      }
+      queries.updateBuildStatus(this.db, build.id, 'failed', Date.now() - startTime);
     }
   }
 
-  async _executeStep(build, stepNumber, state, emit) {
+  async _executeStep(build, stepNumber, state, emit, ctx) {
     const buildId = build.id;
 
-    // Mark step as running
     queries.updateStepStatus(this.db, buildId, stepNumber, 'running');
-    emit({ stepNumber, status: 'running' });
+    emit({ type: 'step-update', step: stepNumber, status: 'running' });
 
     const stepStart = Date.now();
     let lastError = null;
@@ -109,49 +134,31 @@ export class BuildRunner {
       }
 
       try {
-        const result = await this._runStepLogic(build, stepNumber, state);
-        // Merge result into shared state
+        const result = await this._runStepLogic(build, stepNumber, state, ctx);
         Object.assign(state, result);
-
         const durationMs = Date.now() - stepStart;
         queries.updateStepStatus(
-          this.db,
-          buildId,
-          stepNumber,
-          'completed',
-          durationMs,
-          null,
-          JSON.stringify(result)
+          this.db, buildId, stepNumber, 'completed', durationMs, null, JSON.stringify(result)
         );
-        emit({ stepNumber, status: 'completed', durationMs });
-        return; // success
+        emit({ type: 'step-update', step: stepNumber, status: 'completed', duration_ms: durationMs });
+        return;
       } catch (err) {
+        if (err && err.isPauseSignal) throw err; // Don't retry pauses
         lastError = err;
-        // If step set skipRetry (e.g. phone fallback exhausted), don't retry
         if (err.skipRetry) break;
       }
     }
 
-    // All retries exhausted — mark step failed and bubble up
     const durationMs = Date.now() - stepStart;
     queries.updateStepStatus(
-      this.db,
-      buildId,
-      stepNumber,
-      'failed',
-      durationMs,
-      lastError?.message ?? 'Unknown error',
-      null
+      this.db, buildId, stepNumber, 'failed', durationMs,
+      lastError?.message ?? 'Unknown error', null
     );
-    emit({ stepNumber, status: 'failed', error: lastError?.message });
+    emit({ type: 'step-update', step: stepNumber, status: 'failed', error: lastError?.message });
     throw lastError;
   }
 
-  /**
-   * Execute the actual GHL API logic for the given step.
-   * Returns a plain object of new state keys to merge.
-   */
-  async _runStepLogic(build, stepNumber, state) {
+  async _runStepLogic(build, stepNumber, state, ctx) {
     switch (stepNumber) {
       case 1: return await this._step1CreateLocation(build);
       case 2: return await this._step2ProvisionPhone(build, state, build.id);
@@ -159,11 +166,22 @@ export class BuildRunner {
       case 4: return await this._step4CreatePipeline(build, state);
       case 5: return await this._step5CreateUser(build, state);
       case 6: return await this._step6SendWelcomeComms(build, state);
+      case 7: return await this._step7WebsiteCreationStub(build, state, ctx);
       default: throw new Error(`Unknown step number: ${stepNumber}`);
     }
   }
 
-  // ─── Step implementations ─────────────────────────────────────────────────
+  async _step7WebsiteCreationStub(build, state, ctx) {
+    if (!ctx.resumePayload) {
+      throw new PauseSignal(7, {
+        reason: 'stub_pause',
+        message: 'Click Continue to proceed (M1 stub).',
+      });
+    }
+    return { resumed: true, payload: ctx.resumePayload };
+  }
+
+  // ─── Step 1-6 implementations (unchanged) ─────────────────────────────────
 
   async _step1CreateLocation(build) {
     const snapshot = snapshots[build.industry] || snapshots['general'];
@@ -183,10 +201,7 @@ export class BuildRunner {
 
     const response = await this.ghl.createLocation(locationData);
     const locationId = response.location.id;
-
-    // Persist location_id on the builds row immediately
     queries.updateBuildLocationId(this.db, build.id, locationId);
-
     return { locationId };
   }
 
@@ -202,14 +217,12 @@ export class BuildRunner {
         return { phoneNumberId: response.phoneNumber.id, phoneNumber: response.phoneNumber.number };
       } catch (err) {
         lastError = err;
-        // Each failed fallback attempt counts as a retry (except the first attempt)
         if (i > 0) {
           queries.incrementStepRetry(this.db, buildId, 2);
         }
       }
     }
 
-    // All area codes exhausted — signal outer retry loop to skip further retries
     const err = new Error(`Phone provisioning failed for all area codes: ${lastError?.message}`);
     err.skipRetry = true;
     throw err;
@@ -254,7 +267,6 @@ export class BuildRunner {
   async _step6SendWelcomeComms(build, state) {
     const locationId = state.locationId;
 
-    // Create contact
     const contactResponse = await this.ghl.createContact(
       locationId,
       build.owner_first_name,
@@ -264,7 +276,6 @@ export class BuildRunner {
     );
     const contactId = contactResponse.contact.id;
 
-    // Send welcome email
     const emailSubject = `Welcome to ${build.business_name} — Your Account is Ready`;
     const emailBody =
       `Hi ${build.owner_first_name},\n\n` +
@@ -283,7 +294,6 @@ export class BuildRunner {
       emailSubject
     );
 
-    // Send welcome SMS
     const smsBody =
       `Hi ${build.owner_first_name}! Your ${build.business_name} account is ready. ` +
       `Check your email for the login invitation. — VO360`;
@@ -299,16 +309,10 @@ export class BuildRunner {
 
   // ─── State reconstruction ─────────────────────────────────────────────────
 
-  /**
-   * Reads api_response JSON from all completed steps before `fromStep`
-   * and merges them into a single state object.
-   * Also ensures locationId is pulled from the builds table if available.
-   */
   async _getStateFromPriorSteps(buildId, fromStep) {
     const build = queries.getBuildById(this.db, buildId);
     const state = {};
 
-    // Seed locationId from the builds table (set during step 1)
     if (build.location_id) {
       state.locationId = build.location_id;
     }
