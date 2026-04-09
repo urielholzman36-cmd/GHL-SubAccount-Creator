@@ -2,20 +2,22 @@ const CSS_MARKER = '/* === VO360 Onboarding — Auto-generated === */';
 
 export class WordPressClient {
   constructor({ url, username, appPassword, fetchImpl }) {
-    this.baseUrl = url.replace(/\/$/, '');
+    this.baseUrl = url.replace(/\/+$/, '');
     this.authHeader = 'Basic ' + Buffer.from(`${username}:${appPassword}`).toString('base64');
     this._fetch = fetchImpl || fetch;
   }
 
   async _request(method, path, body = null, extraHeaders = {}) {
-    const url = `${this.baseUrl}${path}`;
+    const url = `${this.baseUrl}/wp-json${path}`;
     const headers = {
       'Authorization': this.authHeader,
-      'Content-Type': 'application/json',
       ...extraHeaders,
     };
     const options = { method, headers };
-    if (body !== null) options.body = JSON.stringify(body);
+    if (body !== null) {
+      headers['Content-Type'] = 'application/json';
+      options.body = JSON.stringify(body);
+    }
     const response = await this._fetch(url, options);
     if (!response.ok) {
       const text = await response.text();
@@ -25,11 +27,11 @@ export class WordPressClient {
   }
 
   async validateConnection() {
-    await this._request('GET', '/wp-json/wp/v2/settings');
+    await this._request('GET', '/wp/v2/settings');
   }
 
   async installPlugin(slug) {
-    return this._request('POST', '/wp-json/wp/v2/plugins', { slug, status: 'active' });
+    return this._request('POST', '/wp/v2/plugins', { slug, status: 'active' });
   }
 
   async uploadMedia(fileBuffer, filename, mimeType) {
@@ -49,7 +51,7 @@ export class WordPressClient {
   }
 
   async setSiteLogo(mediaId) {
-    return this._request('POST', '/wp-json/wp/v2/settings', { site_logo: mediaId, site_icon: mediaId });
+    return this._request('POST', '/wp/v2/settings', { site_logo: mediaId, site_icon: mediaId });
   }
 
   async deleteTemplate(slug) {
@@ -63,7 +65,7 @@ export class WordPressClient {
   }
 
   async createPage(title, htmlContent) {
-    const data = await this._request('POST', '/wp-json/wp/v2/pages', {
+    const data = await this._request('POST', '/wp/v2/pages', {
       title,
       content: htmlContent,
       status: 'publish',
