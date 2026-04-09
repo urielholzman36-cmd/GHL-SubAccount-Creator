@@ -70,10 +70,24 @@ export function initializeDb(db) {
     ['wp_url', 'TEXT'],
     ['wp_username', 'TEXT'],
     ['wp_password_encrypted', 'TEXT'],
+    ['business_description', 'TEXT'],
   ];
   const buildCols2 = db.prepare("PRAGMA table_info(builds)").all().map((c) => c.name);
   for (const [name, type] of m2aCols) {
     if (!buildCols2.includes(name)) {
+      db.exec(`ALTER TABLE builds ADD COLUMN ${name} ${type}`);
+    }
+  }
+
+  // M2b additive migrations
+  const buildCols3 = db.prepare("PRAGMA table_info(builds)").all().map((c) => c.name);
+  const m2bCols = [
+    ['privacy_policy_url', 'TEXT'],
+    ['terms_url', 'TEXT'],
+    ['faq_url', 'TEXT'],
+  ];
+  for (const [name, type] of m2bCols) {
+    if (!buildCols3.includes(name)) {
       db.exec(`ALTER TABLE builds ADD COLUMN ${name} ${type}`);
     }
   }

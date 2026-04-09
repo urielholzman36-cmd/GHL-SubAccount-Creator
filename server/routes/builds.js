@@ -131,6 +131,9 @@ export function createBuildsRouter(db) {
       if (!body.industry_text || !String(body.industry_text).trim()) {
         errors.push('industry_text is required');
       }
+      if (!body.business_description || !String(body.business_description).trim()) {
+        errors.push('business_description is required');
+      }
       if (!body.target_audience || !String(body.target_audience).trim()) {
         errors.push('target_audience is required');
       }
@@ -138,7 +141,7 @@ export function createBuildsRouter(db) {
         errors.push('logo file is required');
       }
       if (errors.length > 0) {
-        return res.status(400).json({ error: 'Validation failed', details: errors });
+        return res.status(400).json({ message: errors.join('. ') });
       }
 
       const id = req.buildId;
@@ -166,9 +169,10 @@ export function createBuildsRouter(db) {
 
         const logoPath = req.file ? path.relative(path.resolve(__dirname, '../..'), req.file.path) : null;
         db.prepare(
-          `UPDATE builds SET industry_text = ?, target_audience = ?, logo_path = ?, brand_colors = ? WHERE id = ?`
+          `UPDATE builds SET industry_text = ?, business_description = ?, target_audience = ?, logo_path = ?, brand_colors = ? WHERE id = ?`
         ).run(
           body.industry_text.trim(),
+          (body.business_description || '').trim(),
           body.target_audience.trim(),
           logoPath,
           brandColorsJson,
@@ -297,8 +301,8 @@ export function createBuildsRouter(db) {
     const { id, step } = req.params;
     const stepNumber = parseInt(step);
 
-    if (isNaN(stepNumber) || stepNumber < 1 || stepNumber > 3) {
-      return res.status(400).json({ error: 'step must be a number between 1 and 3' });
+    if (isNaN(stepNumber) || stepNumber < 1 || stepNumber > 11) {
+      return res.status(400).json({ error: 'step must be a number between 1 and 11' });
     }
 
     const build = queries.getBuildById(db, id);
@@ -363,6 +367,34 @@ export function createBuildsRouter(db) {
     });
 
     res.status(202).json({ ok: true, id });
+  });
+
+  // DELETE /:id — delete a build and its steps
+  router.delete('/:id', async (req, res) => {
+    const { id } = req.params;
+    const build = queries.getBuildById(db, id);
+    if (!build) return res.status(404).json({ error: 'Build not found' });
+
+    // Try to delete the GHL sub-account if one was created
+    if (build.location_id) {
+      try {
+        const ghl = new GhlApi(process.env.GHL_AGENCY_API_KEY);
+        await ghl.request('DELETE', `/locations/${build.location_id}`);
+      } catch (_) {
+        // Best-effort — sub-account may already be gone
+      }
+    }
+
+    // Delete logo file if exists
+    if (build.logo_path) {
+      const logoFullPath = path.resolve(__dirname, '../..', build.logo_path);
+      try { fs.unlinkSync(logoFullPath); } catch (_) {}
+    }
+
+    db.prepare('DELETE FROM build_steps WHERE build_id = ?').run(id);
+    db.prepare('DELETE FROM builds WHERE id = ?').run(id);
+
+    res.json({ ok: true, deleted: id });
   });
 
   return router;
