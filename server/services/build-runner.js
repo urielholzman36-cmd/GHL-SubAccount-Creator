@@ -1,10 +1,17 @@
 import * as queries from '../db/queries.js';
 import { PHASES, getPhaseForStep, isStepOptional } from './phases.config.js';
 import { generatePrompt as realGeneratePrompt } from './prompt-generator.js';
-import { encrypt } from './crypto.js';
+import { encrypt, decrypt } from './crypto.js';
+import { WordPressClient } from './wordpress.js';
+import { generateLegalDocs, generateFAQ, generateSiteCSS } from './content-generator.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_BACKOFF_MS = [1000, 2000, 4000];
 const MAX_RETRIES = 3;
+const DEFAULT_PLUGINS = ['allaccessible', 'leadconnector', 'wp-call-button'];
 
 export const SNAPSHOT_ID = 'SnbFmqepikqgzI5tgEZ6';
 
@@ -28,6 +35,10 @@ export class BuildRunner {
     this.generatePromptImpl =
       options.generatePromptImpl ||
       ((build) => realGeneratePrompt(build, { apiKey: process.env.ANTHROPIC_API_KEY }));
+    this.wpFetchImpl = options.wpFetchImpl || null;
+    this.generateLegalImpl = options.generateLegalImpl || null;
+    this.generateFAQImpl = options.generateFAQImpl || null;
+    this.generateCSSImpl = options.generateCSSImpl || null;
   }
 
   async run(buildId, emit) {
@@ -163,9 +174,16 @@ export class BuildRunner {
     const freshBuild = queries.getBuildById(this.db, build.id) || build;
     switch (stepNumber) {
       case 1: return await this._step1CreateLocation(freshBuild);
-      case 2: return await this._step2SendWelcomeComms(freshBuild, state);
-      case 3: return await this._step3GeneratePrompt(freshBuild, state);
-      case 4: return await this._step4WebsiteCreationManual(freshBuild, state, ctx);
+      case 2: return await this._step2GeneratePrompt(freshBuild, state);
+      case 3: return await this._step3WebsiteCreationManual(freshBuild, state, ctx);
+      case 4: return await this._step4ValidateWP(freshBuild);
+      case 5: return await this._step5InstallPlugins(freshBuild, state);
+      case 6: return await this._step6UploadLogo(freshBuild, state);
+      case 7: return await this._step7FixHeader(freshBuild, state);
+      case 8: return await this._step8GenerateLegal(freshBuild);
+      case 9: return await this._step9GenerateFAQ(freshBuild);
+      case 10: return await this._step10PublishPages(freshBuild, state);
+      case 11: return await this._step11ApplySiteCSS(freshBuild, state);
       default: throw new Error(`Unknown step number: ${stepNumber}`);
     }
   }
@@ -191,17 +209,7 @@ export class BuildRunner {
     return { locationId };
   }
 
-  async _step2SendWelcomeComms(build, state) {
-    const err = new Error(
-      'Welcome comms not available: agency private integration tokens cannot ' +
-      'send messages on behalf of sub-accounts. Send the welcome email and SMS ' +
-      'manually from inside the new sub-account.'
-    );
-    err.skipRetry = true;
-    throw err;
-  }
-
-  async _step3GeneratePrompt(build, state) {
+  async _step2GeneratePrompt(build, state) {
     const promptText = await this.generatePromptImpl(build);
     if (!promptText || typeof promptText !== 'string') {
       throw new Error('generatePromptImpl returned empty response');
@@ -210,10 +218,10 @@ export class BuildRunner {
     return { tenwebPromptGenerated: true };
   }
 
-  async _step4WebsiteCreationManual(build, state, ctx) {
+  async _step3WebsiteCreationManual(build, state, ctx) {
     if (!ctx.resumePayload) {
       const row = queries.getBuildById(this.db, build.id);
-      throw new PauseSignal(4, {
+      throw new PauseSignal(3, {
         reason: 'awaiting_website',
         prompt: row.tenweb_prompt || '',
         message:
@@ -239,6 +247,101 @@ export class BuildRunner {
     ).run(wp_url.trim(), wp_username.trim(), encrypted, build.id);
 
     return { credentialsStored: true };
+  }
+
+  _createWPClient(build) {
+    const password = decrypt(build.wp_password_encrypted);
+    return new WordPressClient({
+      url: build.wp_url,
+      username: build.wp_username,
+      appPassword: password,
+      fetchImpl: this.wpFetchImpl || undefined,
+    });
+  }
+
+  async _step4ValidateWP(build) {
+    const wp = this._createWPClient(build);
+    await wp.validateConnection();
+    return { wpValidated: true };
+  }
+
+  async _step5InstallPlugins(build, state) {
+    const wp = this._createWPClient(build);
+    const results = [];
+    for (const slug of DEFAULT_PLUGINS) {
+      try {
+        await wp.installPlugin(slug);
+        results.push({ slug, status: 'installed' });
+      } catch (err) {
+        results.push({ slug, status: 'failed', error: err.message });
+      }
+    }
+    return { pluginsInstalled: results };
+  }
+
+  async _step6UploadLogo(build, state) {
+    if (!build.logo_path) {
+      const err = new Error('No logo_path set on build');
+      err.skipRetry = true;
+      throw err;
+    }
+    const projectRoot = path.resolve(__dirname, '..', '..');
+    const absolutePath = path.resolve(projectRoot, build.logo_path);
+    const fileBuffer = fs.readFileSync(absolutePath);
+    const filename = path.basename(absolutePath);
+    const ext = path.extname(filename).toLowerCase().replace('.', '');
+    const mimeMap = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml', webp: 'image/webp' };
+    const mimeType = mimeMap[ext] || 'application/octet-stream';
+
+    const wp = this._createWPClient(build);
+    const media = await wp.uploadMedia(fileBuffer, filename, mimeType);
+    await wp.setSiteLogo(media.id);
+    return { logoMediaId: media.id, logoUrl: media.source_url };
+  }
+
+  async _step7FixHeader(build, state) {
+    const wp = this._createWPClient(build);
+    await wp.deleteTemplate('header-home');
+    return { headerFixed: true };
+  }
+
+  async _step8GenerateLegal(build) {
+    const impl = this.generateLegalImpl || generateLegalDocs;
+    const { privacyPolicy, termsOfService } = await impl(build, { apiKey: process.env.ANTHROPIC_API_KEY });
+    return { privacyPolicy, termsOfService };
+  }
+
+  async _step9GenerateFAQ(build) {
+    const impl = this.generateFAQImpl || generateFAQ;
+    const faqHtml = await impl(build, { apiKey: process.env.ANTHROPIC_API_KEY });
+    return { faqHtml };
+  }
+
+  async _step10PublishPages(build, state) {
+    const wp = this._createWPClient(build);
+
+    const ppResult = await wp.createPage('Privacy Policy', state.privacyPolicy);
+    const tosResult = await wp.createPage('Terms of Service', state.termsOfService);
+    const faqResult = await wp.createPage('FAQ', state.faqHtml);
+
+    this.db.prepare(
+      'UPDATE builds SET privacy_policy_url = ?, terms_url = ?, faq_url = ? WHERE id = ?'
+    ).run(ppResult.link, tosResult.link, faqResult.link, build.id);
+
+    return {
+      privacyPolicyUrl: ppResult.link,
+      termsUrl: tosResult.link,
+      faqUrl: faqResult.link,
+    };
+  }
+
+  async _step11ApplySiteCSS(build, state) {
+    const wp = this._createWPClient(build);
+    const existingCSS = await wp.getCustomCSS();
+    const impl = this.generateCSSImpl || generateSiteCSS;
+    const newCSS = await impl(build, existingCSS, { apiKey: process.env.ANTHROPIC_API_KEY });
+    await wp.setCustomCSS(newCSS);
+    return { cssApplied: true };
   }
 
   async _getStateFromPriorSteps(buildId, fromStep) {
