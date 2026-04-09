@@ -13,20 +13,34 @@ const STEP_NAMES = [
 function StepBadge({ status }) {
   if (status === 'success' || status === 'completed') {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700">
-        ✓ Success
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-green-500/15 text-green-400">
+        Success
+      </span>
+    );
+  }
+  if (status === 'warning') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-500/15 text-amber-400">
+        Warning
       </span>
     );
   }
   if (status === 'failed' || status === 'error') {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-600">
-        ✗ Failed
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-red-500/15 text-red-400">
+        Failed
+      </span>
+    );
+  }
+  if (status === 'running') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-magenta/15 text-magenta">
+        Running
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-500">
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-white/5 text-white/30">
       {status ?? 'Pending'}
     </span>
   );
@@ -48,12 +62,12 @@ function CollapsibleCode({ json }) {
     <div className="mt-2">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="text-xs text-navy underline hover:text-magenta transition-colors"
+        className="text-xs text-magenta/70 hover:text-magenta transition-colors"
       >
         {open ? 'Hide API Response' : 'Show API Response'}
       </button>
       {open && (
-        <pre className="mt-1 p-3 bg-white border border-gray-200 rounded text-xs overflow-auto max-h-48 text-gray-700 font-mono">
+        <pre className="mt-1 p-3 bg-white/3 border border-white/5 rounded-lg text-xs overflow-auto max-h-48 text-white/50 font-mono">
           {formatted}
         </pre>
       )}
@@ -87,7 +101,7 @@ export default function BuildDetailRow({ buildId }) {
   if (loading) {
     return (
       <tr>
-        <td colSpan={6} className="bg-gray-50 px-6 py-4 text-sm text-gray-400 border-t">
+        <td colSpan={6} className="bg-white/3 px-6 py-4 text-sm text-white/20 border-b border-white/5">
           Loading steps...
         </td>
       </tr>
@@ -97,7 +111,7 @@ export default function BuildDetailRow({ buildId }) {
   if (error) {
     return (
       <tr>
-        <td colSpan={6} className="bg-gray-50 px-6 py-4 text-sm text-red-400 border-t">
+        <td colSpan={6} className="bg-white/3 px-6 py-4 text-sm text-red-400 border-b border-white/5">
           {error}
         </td>
       </tr>
@@ -119,7 +133,6 @@ export default function BuildDetailRow({ buildId }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       });
-      // Reload this row's data
       const res = await fetch(`/api/builds/${buildId}`);
       if (res.ok) setData(await res.json());
     } catch (err) {
@@ -129,7 +142,7 @@ export default function BuildDetailRow({ buildId }) {
 
   return (
     <tr>
-      <td colSpan={6} className="bg-gray-50 border-t px-6 py-4">
+      <td colSpan={6} className="bg-white/3 border-b border-white/5 px-6 py-4">
         {isAwaitingWebsite && (
           <AwaitingWebsiteBanner
             pauseInfo={{ context: pauseContext }}
@@ -146,20 +159,19 @@ export default function BuildDetailRow({ buildId }) {
           />
         )}
         {isPaused && !isAwaitingWebsite && (
-          <div className="mb-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center justify-between">
+          <div className="mb-3 glass rounded-lg p-3 flex items-center justify-between">
             <div>
-              <p className="text-sm font-bold text-yellow-800">Waiting to continue</p>
-              <p className="text-xs text-yellow-700 mt-0.5">
+              <p className="text-sm font-bold text-amber-400">Waiting to continue</p>
+              <p className="text-xs text-white/30 mt-0.5">
                 This build is paused at step {data?.paused_at_step}. Click Continue to proceed.
               </p>
             </div>
             <button
               type="button"
               onClick={handleResume}
-              style={{ backgroundColor: '#d6336c', color: '#ffffff' }}
-              className="text-sm font-bold px-5 py-2 rounded-md shadow hover:opacity-90"
+              className="text-sm font-bold px-5 py-2 rounded-lg bg-brand-gradient text-white shadow-lg shadow-magenta/20 hover:opacity-90 transition"
             >
-              ▶ Continue
+              Continue
             </button>
           </div>
         )}
@@ -177,18 +189,18 @@ export default function BuildDetailRow({ buildId }) {
             return (
               <div key={step.id ?? i} className="flex flex-col gap-1">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-xs font-bold text-gray-400 w-5 text-right">
+                  <span className="text-xs font-bold text-white/20 w-5 text-right">
                     {i + 1}
                   </span>
-                  <span className="text-sm font-medium text-gray-700 min-w-36">
+                  <span className="text-sm font-medium text-white/70 min-w-36">
                     {name}
                   </span>
                   <StepBadge status={step.status} />
-                  <span className="text-xs text-gray-400">{startedAt}</span>
-                  <span className="text-xs text-gray-400">{durationSec}</span>
+                  <span className="text-xs text-white/20">{startedAt}</span>
+                  <span className="text-xs text-white/20">{durationSec}</span>
                 </div>
                 {step.error_message && (
-                  <p className="ml-8 text-xs text-red-500">{step.error_message}</p>
+                  <p className="ml-8 text-xs text-red-400">{step.error_message}</p>
                 )}
                 {step.api_response && (
                   <div className="ml-8">
@@ -199,7 +211,7 @@ export default function BuildDetailRow({ buildId }) {
             );
           })}
           {steps.length === 0 && (
-            <p className="text-sm text-gray-400">No step details available.</p>
+            <p className="text-sm text-white/20">No step details available.</p>
           )}
         </div>
       </td>

@@ -6,15 +6,28 @@ const DEFAULT_PHASES = [
     name: 'GHL Sub-Account Setup',
     steps: [
       { step: 1, name: 'Create Sub-Account' },
-      { step: 2, name: 'Send Welcome Comms' },
     ],
   },
   {
     id: 2,
     name: 'Website Build',
     steps: [
-      { step: 3, name: 'Generate 10web Prompt' },
-      { step: 4, name: 'Website Creation (Manual)' },
+      { step: 2, name: 'Generate 10web Prompt' },
+      { step: 3, name: 'Website Creation (Manual)' },
+    ],
+  },
+  {
+    id: 3,
+    name: 'WordPress Setup',
+    steps: [
+      { step: 4, name: 'Validate WordPress' },
+      { step: 5, name: 'Install Plugins' },
+      { step: 6, name: 'Upload Logo' },
+      { step: 7, name: 'Fix Header' },
+      { step: 8, name: 'Generate Legal Pages' },
+      { step: 9, name: 'Generate FAQ' },
+      { step: 10, name: 'Publish Pages' },
+      { step: 11, name: 'Apply Site CSS' },
     ],
   },
 ];
@@ -70,6 +83,10 @@ export function useSSE(buildId) {
       const data = JSON.parse(e.data);
       setBuildStatus('paused');
       setPauseInfo({ step: data.step, context: data.context });
+      // Update the paused step so it stops showing as "running"
+      if (data.step) {
+        updateStep(data.step, { status: 'paused' });
+      }
     });
 
     es.addEventListener('build-complete', (e) => {

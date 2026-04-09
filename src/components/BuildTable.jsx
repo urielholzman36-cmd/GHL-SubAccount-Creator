@@ -1,57 +1,38 @@
 import { useEffect, useState, useCallback } from 'react';
 import BuildDetailRow from './BuildDetailRow';
 
-const INDUSTRIES = ['', 'Construction', 'Plumbing', 'Electrical', 'Cleaning', 'General'];
-const STATUSES = ['', 'success', 'failed'];
-
-const INDUSTRY_BADGE = {
-  Construction: 'bg-gray-800 text-white',
-  Plumbing: 'bg-navy text-white',
-  Electrical: 'bg-amber-500 text-white',
-  Cleaning: 'bg-magenta text-white',
-  General: 'bg-gray-400 text-white',
-};
-
-function IndustryBadge({ industry }) {
-  const cls = INDUSTRY_BADGE[industry] ?? 'bg-gray-300 text-gray-700';
-  return (
-    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${cls}`}>
-      {industry ?? '—'}
-    </span>
-  );
-}
 
 function StatusBadge({ status }) {
   if (status === 'success' || status === 'completed') {
     return (
-      <span className="px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700">
-        ✓ Success
+      <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-green-500/15 text-green-400 border border-green-500/20">
+        Success
       </span>
     );
   }
   if (status === 'failed') {
     return (
-      <span className="px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-600">
-        ✗ Failed
+      <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/20">
+        Failed
       </span>
     );
   }
   if (status === 'paused') {
     return (
-      <span className="px-2 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-800">
-        ⏸ Paused
+      <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/20">
+        Paused
       </span>
     );
   }
   if (status === 'running') {
     return (
-      <span className="px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-700">
+      <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-magenta/15 text-magenta border border-magenta/20">
         Running
       </span>
     );
   }
   return (
-    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-500">
+    <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-white/5 text-white/30 border border-white/10">
       {status ?? '—'}
     </span>
   );
@@ -81,13 +62,11 @@ export default function BuildTable() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [search, setSearch] = useState('');
-  const [industry, setIndustry] = useState('');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
 
-  // Debounced search value
   const [debouncedSearch, setDebouncedSearch] = useState('');
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -99,7 +78,6 @@ export default function BuildTable() {
     setError(null);
     const params = new URLSearchParams({ page });
     if (debouncedSearch) params.set('search', debouncedSearch);
-    if (industry) params.set('industry', industry);
     if (status) params.set('status', status);
 
     fetch(`/api/builds?${params}`)
@@ -117,23 +95,38 @@ export default function BuildTable() {
         setError(e.message);
         setLoading(false);
       });
-  }, [page, debouncedSearch, industry, status]);
+  }, [page, debouncedSearch, status]);
 
   useEffect(() => {
     fetchBuilds();
   }, [fetchBuilds]);
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
     setExpandedId(null);
-  }, [debouncedSearch, industry, status]);
+  }, [debouncedSearch, status]);
 
   const totalPages = Math.max(1, Math.ceil(total / perPage));
+
+  async function handleDelete(e, buildId, businessName) {
+    e.stopPropagation();
+    if (!confirm(`Delete "${businessName}"? This will also remove the GHL sub-account.`)) return;
+    try {
+      const res = await fetch(`/api/builds/${buildId}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchBuilds();
+        if (expandedId === buildId) setExpandedId(null);
+      }
+    } catch (_) {}
+  }
 
   function toggleRow(id) {
     setExpandedId((prev) => (prev === id ? null : id));
   }
+
+  const selectClass =
+    'px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-sm text-white/70 ' +
+    'focus:outline-none focus:border-magenta/50 focus:ring-1 focus:ring-magenta/30 transition';
 
   return (
     <div>
@@ -144,24 +137,12 @@ export default function BuildTable() {
           placeholder="Search by name or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-magenta/40"
+          className="flex-1 px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-white/20 focus:outline-none focus:border-magenta/50 focus:ring-1 focus:ring-magenta/30 transition"
         />
-        <select
-          value={industry}
-          onChange={(e) => setIndustry(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-magenta/40 bg-white"
-        >
-          <option value="">All Industries</option>
-          {INDUSTRIES.filter(Boolean).map((ind) => (
-            <option key={ind} value={ind}>
-              {ind}
-            </option>
-          ))}
-        </select>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-magenta/40 bg-white"
+          className={selectClass}
         >
           <option value="">All Statuses</option>
           <option value="completed">Success</option>
@@ -172,22 +153,22 @@ export default function BuildTable() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl overflow-hidden shadow">
+      <div className="glass rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-navy text-white">
-              <th className="text-left px-4 py-3 font-semibold">Business</th>
-              <th className="text-left px-4 py-3 font-semibold">Owner</th>
-              <th className="text-left px-4 py-3 font-semibold">Industry</th>
-              <th className="text-left px-4 py-3 font-semibold">Status</th>
-              <th className="text-left px-4 py-3 font-semibold">Date</th>
-              <th className="text-left px-4 py-3 font-semibold">Build Time</th>
+            <tr className="border-b border-white/5">
+              <th className="text-left px-4 py-3 font-semibold text-white/40 text-xs uppercase tracking-wider">Business</th>
+              <th className="text-left px-4 py-3 font-semibold text-white/40 text-xs uppercase tracking-wider">Owner</th>
+              <th className="text-left px-4 py-3 font-semibold text-white/40 text-xs uppercase tracking-wider">Status</th>
+              <th className="text-left px-4 py-3 font-semibold text-white/40 text-xs uppercase tracking-wider">Date</th>
+              <th className="text-left px-4 py-3 font-semibold text-white/40 text-xs uppercase tracking-wider">Time</th>
+              <th className="w-10"></th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={6} className="text-center py-10 text-gray-400">
+                <td colSpan={6} className="text-center py-10 text-white/20">
                   Loading...
                 </td>
               </tr>
@@ -201,39 +182,48 @@ export default function BuildTable() {
             )}
             {!loading && !error && builds.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-center py-10 text-gray-400">
+                <td colSpan={6} className="text-center py-10 text-white/20">
                   No builds found.
                 </td>
               </tr>
             )}
             {!loading &&
               !error &&
-              builds.map((build, i) => {
+              builds.map((build) => {
                 const isExpanded = expandedId === build.id;
-                const rowBg = i % 2 === 0 ? 'bg-white' : 'bg-gray-50';
                 return [
                   <tr
                     key={build.id}
                     onClick={() => toggleRow(build.id)}
-                    className={`${rowBg} cursor-pointer hover:bg-blue-50 transition-colors`}
+                    className={`cursor-pointer border-b border-white/5 transition-colors ${
+                      isExpanded ? 'bg-white/6' : 'hover:bg-white/4'
+                    }`}
                   >
                     <td className="px-4 py-3">
-                      <span className="font-semibold text-gray-800 block">
+                      <span className="font-semibold text-white block">
                         {build.business_name ?? '—'}
                       </span>
-                      <span className="text-xs text-gray-400">{build.email ?? ''}</span>
+                      <span className="text-xs text-white/25">{build.email ?? ''}</span>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-4 py-3 text-white/50">
                       {[build.first_name, build.last_name].filter(Boolean).join(' ') || '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <IndustryBadge industry={build.industry} />
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={build.status} />
                     </td>
-                    <td className="px-4 py-3 text-gray-500">{formatDate(build.created_at)}</td>
-                    <td className="px-4 py-3 text-gray-500">{formatDuration(build.duration_ms)}</td>
+                    <td className="px-4 py-3 text-white/30 text-xs">{formatDate(build.created_at)}</td>
+                    <td className="px-4 py-3 text-white/30 text-xs">{formatDuration(build.duration_ms)}</td>
+                    <td className="px-2 py-3">
+                      <button
+                        onClick={(e) => handleDelete(e, build.id, build.business_name)}
+                        className="p-1.5 rounded-lg text-white/15 hover:text-red-400 hover:bg-red-500/10 transition"
+                        title="Delete build"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </td>
                   </tr>,
                   isExpanded && (
                     <BuildDetailRow key={`detail-${build.id}`} buildId={build.id} />
@@ -251,10 +241,10 @@ export default function BuildTable() {
             <button
               key={p}
               onClick={() => setPage(p)}
-              className={`w-8 h-8 rounded-full text-sm font-semibold transition-colors ${
+              className={`w-8 h-8 rounded-full text-sm font-semibold transition-all ${
                 p === page
-                  ? 'bg-magenta text-white'
-                  : 'bg-white text-gray-500 border border-gray-200 hover:border-magenta hover:text-magenta'
+                  ? 'bg-magenta text-white shadow-lg shadow-magenta/30'
+                  : 'bg-white/5 text-white/30 border border-white/10 hover:border-magenta/30 hover:text-magenta'
               }`}
             >
               {p}

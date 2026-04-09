@@ -23,34 +23,38 @@ export default function StatsCards() {
     {
       label: 'Total Builds',
       value: stats ? stats.total ?? 0 : '—',
-      color: 'text-navy',
+      glow: 'glow-blue',
+      accent: 'text-accent-blue',
     },
     {
       label: 'Successful',
       value: stats ? stats.successful ?? 0 : '—',
-      color: 'text-green-600',
+      glow: 'glow-green',
+      accent: 'text-green-400',
     },
     {
       label: 'Failed',
       value: stats ? stats.failed ?? 0 : '—',
-      color: 'text-red-500',
+      glow: 'glow-red',
+      accent: 'text-red-400',
     },
     {
       label: 'Avg Build Time',
       value: stats ? avgSeconds : '—',
-      color: 'text-magenta',
+      glow: 'glow-magenta',
+      accent: 'text-magenta',
     },
   ];
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {cards.map(({ label, value, color }) => (
+      {cards.map(({ label, value, glow, accent }) => (
         <div
           key={label}
-          className="bg-white rounded-xl shadow p-5 flex flex-col items-center text-center"
+          className={`glass rounded-xl p-5 flex flex-col items-center text-center transition-all duration-300 hover:bg-white/6 ${glow}`}
         >
-          <span className={`text-3xl font-bold ${color}`}>{value}</span>
-          <span className="text-xs text-gray-400 mt-1">{label}</span>
+          <span className={`text-3xl font-bold ${accent}`}>{value}</span>
+          <span className="text-xs text-white/30 mt-1 font-medium">{label}</span>
           {error && label === 'Total Builds' && (
             <span className="text-xs text-red-400 mt-1">{error}</span>
           )}

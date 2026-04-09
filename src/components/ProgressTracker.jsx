@@ -2,43 +2,44 @@ import { useState } from 'react';
 import { useSSE } from '../hooks/useSSE';
 import AwaitingWebsiteBanner from './AwaitingWebsiteBanner';
 
-function StepCircle({ status, stepNumber }) {
-  if (status === 'pending') {
-    return (
-      <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 opacity-50">
-        <span className="text-xs font-semibold text-gray-500">{stepNumber}</span>
-      </div>
-    );
-  }
+const STATUS_CONFIG = {
+  pending:   { bg: 'bg-white/5', border: 'border-white/10', text: 'text-white/25', label: 'Pending',  glow: '' },
+  running:   { bg: 'bg-magenta/15', border: 'border-magenta/40', text: 'text-magenta', label: 'Running', glow: 'glow-magenta' },
+  completed: { bg: 'bg-green-500/15', border: 'border-green-500/40', text: 'text-green-400', label: 'Done', glow: 'glow-green' },
+  warning:   { bg: 'bg-amber-500/15', border: 'border-amber-500/40', text: 'text-amber-400', label: 'Warning', glow: 'glow-amber' },
+  paused:    { bg: 'bg-amber-500/15', border: 'border-amber-500/40', text: 'text-amber-400', label: 'Waiting', glow: 'glow-amber' },
+  failed:    { bg: 'bg-red-500/15', border: 'border-red-500/40', text: 'text-red-400', label: 'Failed', glow: 'glow-red' },
+};
+
+function StepIcon({ status }) {
   if (status === 'running') {
     return (
-      <div className="w-7 h-7 rounded-full bg-magenta flex items-center justify-center flex-shrink-0">
-        <svg className="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-        </svg>
-      </div>
+      <svg className="animate-spin w-5 h-5 text-magenta" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+      </svg>
     );
   }
-  if (status === 'completed') {
+  if (status === 'completed' || status === 'warning') {
     return (
-      <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-        <span className="text-white text-xs font-bold">✓</span>
-      </div>
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+      </svg>
     );
   }
-  if (status === 'warning') {
+  if (status === 'paused') {
     return (
-      <div className="w-7 h-7 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
-        <span className="text-white text-xs font-bold">!</span>
-      </div>
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+        <rect x="6" y="5" width="4" height="14" rx="1" />
+        <rect x="14" y="5" width="4" height="14" rx="1" />
+      </svg>
     );
   }
   if (status === 'failed') {
     return (
-      <div className="w-7 h-7 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
-        <span className="text-white text-xs font-bold">✗</span>
-      </div>
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
     );
   }
   return null;
@@ -49,18 +50,12 @@ function formatDuration(ms) {
   return (ms / 1000).toFixed(1) + 's';
 }
 
-function phaseStatusLabel(phase) {
-  const done = (s) => s.status === 'completed' || s.status === 'warning';
-  if (phase.steps.every(done)) return 'Completed';
-  if (phase.steps.some((s) => s.status === 'failed')) return 'Failed';
-  if (phase.steps.some((s) => s.status === 'running')) return 'In Progress';
-  if (phase.steps.every((s) => s.status === 'pending')) return 'Pending';
-  return 'In Progress';
-}
-
 export default function ProgressTracker({ buildId, onRetry }) {
-  const { phases, buildStatus, buildResult, pauseInfo, reconnect } = useSSE(buildId);
+  const { phases, steps, buildStatus, buildResult, pauseInfo, reconnect } = useSSE(buildId);
   const [resuming, setResuming] = useState(false);
+
+  const completedCount = steps.filter((s) => s.status === 'completed' || s.status === 'warning').length;
+  const progressPct = Math.round((completedCount / steps.length) * 100);
 
   async function handleRetry(stepNumber) {
     try {
@@ -72,13 +67,13 @@ export default function ProgressTracker({ buildId, onRetry }) {
     }
   }
 
-  async function handleResume() {
+  async function handleResume(payload) {
     setResuming(true);
     try {
       await fetch(`/api/builds/${buildId}/resume`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify(payload || {}),
       });
       reconnect();
     } catch (err) {
@@ -89,139 +84,126 @@ export default function ProgressTracker({ buildId, onRetry }) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow p-5">
-      <h2 className="text-sm font-bold text-navy mb-4">Build Progress</h2>
+    <div className="space-y-6">
+      {/* Overall progress bar */}
+      <div className="glass rounded-xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-semibold text-white/40 uppercase tracking-wider">Overall Progress</span>
+          <span className="text-xs font-bold text-white/50">{completedCount}/{steps.length} steps</span>
+        </div>
+        <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full bg-brand-gradient transition-all duration-700 ease-out"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+      </div>
 
-      {buildStatus === 'paused' && pauseInfo && pauseInfo.context?.reason === 'awaiting_website' && (
+      {/* Horizontal step cards */}
+      <div className="grid grid-cols-3 lg:grid-cols-4 gap-3">
+        {steps.map((step) => {
+          const cfg = STATUS_CONFIG[step.status] || STATUS_CONFIG.pending;
+          const isActive = step.status === 'running' || step.status === 'paused';
+          return (
+            <div
+              key={step.step}
+              className={`rounded-xl border p-4 transition-all duration-300 ${cfg.bg} ${cfg.border} ${cfg.glow} ${
+                isActive ? 'scale-[1.02]' : ''
+              } ${step.status === 'pending' ? 'opacity-40' : ''}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-xs font-bold uppercase tracking-wider ${cfg.text}`}>
+                  Step {step.step}
+                </span>
+                <div className={cfg.text}>
+                  <StepIcon status={step.status} />
+                </div>
+              </div>
+              <p className={`text-sm font-semibold ${step.status === 'pending' ? 'text-white/25' : 'text-white/80'}`}>
+                {step.name}
+              </p>
+              <div className="mt-2">
+                {step.status === 'pending' && (
+                  <p className="text-xs text-white/15">Waiting...</p>
+                )}
+                {step.status === 'running' && (
+                  <p className="text-xs text-magenta/70">In progress...</p>
+                )}
+                {step.status === 'paused' && (
+                  <p className="text-xs text-amber-400/70">Waiting for your input</p>
+                )}
+                {step.status === 'completed' && step.duration_ms != null && (
+                  <p className="text-xs text-green-400/60">Done in {formatDuration(step.duration_ms)}</p>
+                )}
+                {step.status === 'warning' && (
+                  <p className="text-xs text-amber-400/60">Done with warning</p>
+                )}
+                {step.status === 'failed' && (
+                  <div>
+                    <p className="text-xs text-red-400/70 break-words">{step.error || 'Failed'}</p>
+                    <button
+                      onClick={() => handleRetry(step.step)}
+                      className="mt-2 text-xs font-semibold text-white bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 transition px-3 py-1 rounded-md"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Awaiting website banner */}
+      {buildStatus === 'paused' && pauseInfo?.context?.reason === 'awaiting_website' && (
         <AwaitingWebsiteBanner
           pauseInfo={pauseInfo}
-          onResume={async (payload) => {
-            setResuming(true);
-            try {
-              await fetch(`/api/builds/${buildId}/resume`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-              });
-              reconnect();
-            } catch (err) {
-              console.error('Resume failed:', err);
-            } finally {
-              setResuming(false);
-            }
-          }}
+          onResume={handleResume}
           resuming={resuming}
         />
       )}
+
+      {/* Generic pause */}
       {buildStatus === 'paused' && pauseInfo && pauseInfo.context?.reason !== 'awaiting_website' && (
-        <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-sm font-bold text-yellow-800">Waiting to continue</p>
-          <p className="text-xs text-yellow-700 mt-1">
+        <div className="glass rounded-xl p-5">
+          <p className="text-sm font-bold text-amber-400">Waiting to continue</p>
+          <p className="text-xs text-white/30 mt-1">
             {pauseInfo.context?.message || 'This build is paused. Click Continue to proceed.'}
           </p>
           <button
             type="button"
-            onClick={handleResume}
+            onClick={() => handleResume()}
             disabled={resuming}
-            className="mt-2 text-xs font-semibold text-white bg-magenta hover:opacity-90 disabled:opacity-50 px-4 py-1.5 rounded-md"
+            className="mt-3 text-sm font-semibold text-white bg-brand-gradient hover:opacity-90 disabled:opacity-40 px-5 py-2 rounded-lg shadow-lg shadow-magenta/20 transition"
           >
             {resuming ? 'Resuming…' : 'Continue'}
           </button>
         </div>
       )}
 
-      <div className="flex flex-col gap-5">
-        {phases.map((phase) => (
-          <div key={phase.id}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-bold uppercase tracking-wide text-navy">
-                Phase {phase.id}: {phase.name}
-              </h3>
-              <span className="text-[10px] text-gray-500">{phaseStatusLabel(phase)}</span>
-            </div>
-            <div className="flex flex-col gap-3 pl-2 border-l-2 border-gray-100">
-              {phase.steps.map((step) => (
-                <div key={step.step} className={`flex gap-3 items-start ${step.status === 'pending' ? 'opacity-50' : ''}`}>
-                  <StepCircle status={step.status} stepNumber={step.step} />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium leading-tight ${
-                      step.status === 'pending'   ? 'text-gray-500' :
-                      step.status === 'running'   ? 'text-magenta' :
-                      step.status === 'completed' ? 'text-gray-800' :
-                      step.status === 'warning'   ? 'text-gray-800' :
-                      step.status === 'failed'    ? 'text-gray-800' : 'text-gray-500'
-                    }`}>
-                      {step.name}
-                    </p>
-                    {step.status === 'running' && (
-                      <p className="text-xs text-magenta mt-0.5">Running...</p>
-                    )}
-                    {step.status === 'completed' && step.duration_ms != null && (
-                      <p className="text-xs text-green-600 mt-0.5">
-                        Completed · {formatDuration(step.duration_ms)}
-                      </p>
-                    )}
-                    {step.status === 'warning' && (
-                      <div className="mt-1">
-                        <p className="text-xs text-yellow-700 font-semibold">
-                          Completed with warning
-                        </p>
-                        {step.error && (
-                          <p className="text-xs text-yellow-600 mt-0.5 break-words">{step.error}</p>
-                        )}
-                      </div>
-                    )}
-                    {step.status === 'failed' && (
-                      <div className="mt-1">
-                        <p className="text-xs text-red-500 break-words">{step.error || 'Step failed'}</p>
-                        <button
-                          onClick={() => handleRetry(step.step)}
-                          className="mt-1.5 text-xs font-semibold text-white bg-magenta hover:opacity-90 transition-opacity px-3 py-1 rounded-md"
-                        >
-                          Retry
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
+      {/* Build complete */}
       {buildStatus === 'complete' && buildResult && (
-        <div className="mt-5 bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-start gap-2">
-            <span className="text-lg leading-none">🎉</span>
-            <div>
-              <p className="text-sm font-bold text-green-800">Build Complete!</p>
-              {buildResult.location_id && (
-                <p className="text-xs text-green-700 mt-0.5">
-                  Location ID: <span className="font-mono font-semibold">{buildResult.location_id}</span>
-                </p>
-              )}
-              {buildResult.total_duration_ms != null && (
-                <p className="text-xs text-green-600 mt-0.5">
-                  Total time: {formatDuration(buildResult.total_duration_ms)}
-                </p>
-              )}
-            </div>
-          </div>
+        <div className="glass rounded-xl p-5 glow-green">
+          <p className="text-base font-bold text-green-400">Onboarding Complete!</p>
+          <p className="text-sm text-white/40 mt-1">
+            The client environment is ready.
+          </p>
+          {buildResult.total_duration_ms != null && (
+            <p className="text-xs text-white/20 mt-2">
+              Total time: {formatDuration(buildResult.total_duration_ms)}
+            </p>
+          )}
         </div>
       )}
 
+      {/* Build failed */}
       {buildStatus === 'failed' && buildResult && (
-        <div className="mt-5 bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-start gap-2">
-            <span className="text-lg leading-none">⚠️</span>
-            <div>
-              <p className="text-sm font-bold text-red-800">Build Failed</p>
-              {buildResult.error && (
-                <p className="text-xs text-red-600 mt-0.5 break-words">{buildResult.error}</p>
-              )}
-            </div>
-          </div>
+        <div className="glass rounded-xl p-5 glow-red">
+          <p className="text-base font-bold text-red-400">Build Failed</p>
+          {buildResult.error && (
+            <p className="text-sm text-red-400/60 mt-1 break-words">{buildResult.error}</p>
+          )}
         </div>
       )}
     </div>

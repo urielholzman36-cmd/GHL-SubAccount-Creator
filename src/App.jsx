@@ -9,20 +9,29 @@ function ProtectedLayout() {
   const { authenticated, logout } = useAuth();
   if (authenticated === null)
     return (
-      <div className="min-h-screen bg-page-bg flex items-center justify-center text-gray-400">
-        Loading...
+      <div className="min-h-screen bg-navy flex items-center justify-center text-white/30">
+        <div className="flex items-center gap-3">
+          <svg className="animate-spin w-5 h-5 text-magenta" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+          </svg>
+          <span className="text-sm font-medium">Loading...</span>
+        </div>
       </div>
     );
   if (!authenticated) return <Navigate to="/login" />;
 
   return (
-    <div className="min-h-screen bg-page-bg flex">
+    <div className="min-h-screen bg-navy flex">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-auto">
-        <header className="flex justify-end items-center px-6 py-3 border-b border-gray-200 bg-white">
-          <div className="flex items-center gap-3 text-sm text-gray-500">
-            <span>👤 Team</span>
-            <button onClick={logout} className="text-gray-400 hover:text-gray-600">
+        <header className="flex justify-end items-center px-6 py-3 border-b border-white/5">
+          <div className="flex items-center gap-4 text-sm">
+            <span className="text-white/30">Team</span>
+            <button
+              onClick={logout}
+              className="text-white/20 hover:text-white/50 transition-colors text-xs"
+            >
               Logout
             </button>
           </div>
@@ -35,8 +44,8 @@ function ProtectedLayout() {
               path="/settings"
               element={
                 <div className="p-6">
-                  <h1 className="text-xl font-bold text-navy">Settings</h1>
-                  <p className="text-gray-500 mt-1">
+                  <h1 className="text-xl font-bold text-white">Settings</h1>
+                  <p className="text-white/40 mt-1 text-sm">
                     Snapshot management — coming soon
                   </p>
                 </div>

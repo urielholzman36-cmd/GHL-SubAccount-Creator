@@ -27,6 +27,7 @@ const INITIAL_FORM = {
   firstName: '',
   lastName: '',
   industryText: '',
+  businessDescription: '',
   targetAudience: '',
   brandColors: [],
 };
@@ -34,20 +35,17 @@ const INITIAL_FORM = {
 function validate(fields) {
   const errors = {};
 
-  // Required text fields
   if (!fields.businessName.trim()) errors.businessName = 'Business name is required.';
   if (!fields.firstName.trim()) errors.firstName = 'First name is required.';
   if (!fields.lastName.trim()) errors.lastName = 'Last name is required.';
   if (!fields.timezone) errors.timezone = 'Timezone is required.';
 
-  // Email
   if (!fields.businessEmail.trim()) {
     errors.businessEmail = 'Email is required.';
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.businessEmail)) {
     errors.businessEmail = 'Enter a valid email address.';
   }
 
-  // Phone: 10+ digits after stripping non-digits
   const digits = fields.businessPhone.replace(/\D/g, '');
   if (!fields.businessPhone.trim()) {
     errors.businessPhone = 'Phone is required.';
@@ -55,14 +53,12 @@ function validate(fields) {
     errors.businessPhone = 'Phone must have at least 10 digits.';
   }
 
-  // Area code: exactly 3 digits
   if (!fields.areaCode.trim()) {
     errors.areaCode = 'Area code is required.';
   } else if (!/^\d{3}$/.test(fields.areaCode)) {
     errors.areaCode = 'Area code must be exactly 3 digits.';
   }
 
-  // Website URL (optional)
   if (fields.websiteUrl.trim()) {
     try {
       new URL(fields.websiteUrl);
@@ -72,6 +68,7 @@ function validate(fields) {
   }
 
   if (!fields.industryText || !fields.industryText.trim()) errors.industryText = 'Industry is required.';
+  if (!fields.businessDescription || !fields.businessDescription.trim()) errors.businessDescription = 'Business description is required.';
   if (!fields.targetAudience || !fields.targetAudience.trim()) errors.targetAudience = 'Target audience is required.';
 
   return errors;
@@ -83,25 +80,25 @@ function validateField(name, value, allFields) {
 }
 
 const inputClass =
-  'w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 ' +
-  'focus:outline-none focus:border-magenta focus:ring-1 focus:ring-magenta transition';
+  'w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white ' +
+  'placeholder-white/20 focus:outline-none focus:border-magenta/50 focus:ring-1 focus:ring-magenta/30 transition';
 
-const labelClass = 'block text-xs font-semibold text-gray-500 uppercase mb-1';
+const labelClass = 'block text-xs font-semibold text-white/40 uppercase tracking-wider mb-1.5';
 
 function Field({ label, error, children }) {
   return (
     <div>
       {label && <label className={labelClass}>{label}</label>}
       {children}
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
     </div>
   );
 }
 
 function SectionHeader({ title }) {
   return (
-    <div className="border-b border-gray-100 pb-2 mb-4">
-      <h2 className="text-sm font-bold text-navy">{title}</h2>
+    <div className="border-b border-white/5 pb-2 mb-4">
+      <h2 className="text-sm font-bold text-white/70">{title}</h2>
     </div>
   );
 }
@@ -173,7 +170,6 @@ export default function BuildForm({ onBuildStarted }) {
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
-    // Clear error on change if field was already validated
     if (errors[name] !== undefined) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
@@ -216,6 +212,7 @@ export default function BuildForm({ onBuildStarted }) {
       formData.append('owner_first_name', form.firstName);
       formData.append('owner_last_name', form.lastName);
       formData.append('industry_text', form.industryText);
+      formData.append('business_description', form.businessDescription);
       formData.append('target_audience', form.targetAudience);
       formData.append('brand_colors', JSON.stringify(form.brandColors || []));
       formData.append('logo', logoFile);
@@ -227,7 +224,7 @@ export default function BuildForm({ onBuildStarted }) {
 
       if (res.status === 201) {
         const data = await res.json();
-        onBuildStarted(data.id);
+        onBuildStarted(data.id, form.businessName);
       } else if (res.status === 400) {
         const data = await res.json();
         if (data.errors) {
@@ -247,7 +244,7 @@ export default function BuildForm({ onBuildStarted }) {
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <div className="bg-white rounded-xl shadow p-6 space-y-8">
+      <div className="glass rounded-xl p-6 space-y-8">
 
         {/* Section 1: Business Information */}
         <section>
@@ -342,15 +339,19 @@ export default function BuildForm({ onBuildStarted }) {
             </Field>
 
             <Field label="Country" error={errors.country}>
-              <input
+              <select
                 className={inputClass}
-                type="text"
                 name="country"
                 value={form.country}
                 onChange={handleChange}
                 onBlur={handleBlur}
-                placeholder="US"
-              />
+              >
+                <option value="US">United States</option>
+                <option value="CA">Canada</option>
+                <option value="GB">United Kingdom</option>
+                <option value="AU">Australia</option>
+                <option value="IL">Israel</option>
+              </select>
             </Field>
           </div>
         </section>
@@ -416,6 +417,17 @@ export default function BuildForm({ onBuildStarted }) {
                 placeholder="e.g. Residential electrical contracting"
               />
             </Field>
+            <Field label="Business Description" error={errors.businessDescription}>
+              <textarea
+                className={inputClass}
+                name="businessDescription"
+                rows={3}
+                value={form.businessDescription}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                placeholder="e.g. We install and repair residential electrical systems including panel upgrades, EV charger installations, and smart home wiring..."
+              />
+            </Field>
             <Field label="Target Audience" error={errors.targetAudience}>
               <textarea
                 className={inputClass}
@@ -427,34 +439,40 @@ export default function BuildForm({ onBuildStarted }) {
                 placeholder="e.g. Homeowners aged 35-60 in San Diego County..."
               />
             </Field>
-            <Field label="Logo">
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/svg+xml"
-                onChange={handleLogoChange}
-                className="text-sm"
-              />
+            <Field label="Logo" error={errors.logo}>
+              <div className="flex items-center gap-4">
+                <label className="cursor-pointer px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white/50 hover:bg-white/8 hover:border-white/20 transition">
+                  Choose file
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/svg+xml"
+                    onChange={handleLogoChange}
+                    className="hidden"
+                  />
+                </label>
+                {logoFile && <span className="text-xs text-white/30">{logoFile.name}</span>}
+              </div>
               {logoPreview && (
-                <div className="mt-2">
-                  <img src={logoPreview} alt="Logo preview" className="h-20 border rounded" />
+                <div className="mt-3">
+                  <img src={logoPreview} alt="Logo preview" className="h-16 rounded-lg border border-white/10" />
                 </div>
               )}
               {form.brandColors.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-xs text-gray-500 mb-1">Brand colors (click to edit, × to remove)</p>
+                <div className="mt-3">
+                  <p className="text-xs text-white/30 mb-2">Brand colors (click to edit)</p>
                   <div className="flex gap-2 flex-wrap">
                     {form.brandColors.map((c, i) => (
-                      <div key={i} className="relative">
+                      <div key={i} className="relative group">
                         <input
                           type="color"
                           value={c}
                           onChange={(e) => updateColor(i, e.target.value)}
-                          className="w-10 h-10 border rounded cursor-pointer"
+                          className="w-10 h-10 border border-white/10 rounded-lg cursor-pointer bg-transparent"
                         />
                         <button
                           type="button"
                           onClick={() => removeColor(i)}
-                          className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center"
+                          className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                         >
                           ×
                         </button>
@@ -463,7 +481,7 @@ export default function BuildForm({ onBuildStarted }) {
                     <button
                       type="button"
                       onClick={addColor}
-                      className="w-10 h-10 border border-dashed rounded text-gray-400 hover:border-gray-600 hover:text-gray-600"
+                      className="w-10 h-10 border border-dashed border-white/15 rounded-lg text-white/20 hover:border-white/30 hover:text-white/40 transition"
                     >
                       +
                     </button>
@@ -506,18 +524,18 @@ export default function BuildForm({ onBuildStarted }) {
 
         {/* Global error */}
         {globalError && (
-          <p className="text-sm text-red-500 text-center">{globalError}</p>
+          <p className="text-sm text-red-400 text-center">{globalError}</p>
         )}
 
         {/* Submit */}
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-gradient-to-r from-magenta to-purple-700 text-white font-semibold
-                     py-3 rounded-lg text-sm tracking-wide shadow hover:opacity-90
-                     transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-brand-gradient text-white font-semibold
+                     py-3 rounded-lg text-sm tracking-wide shadow-lg shadow-magenta/20 hover:opacity-90
+                     transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {submitting ? 'Creating…' : '🚀 Create Sub-Account'}
+          {submitting ? 'Creating…' : 'Start Onboarding'}
         </button>
 
       </div>
