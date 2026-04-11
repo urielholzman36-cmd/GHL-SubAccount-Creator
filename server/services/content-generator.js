@@ -270,13 +270,23 @@ function buildFAQUserMessage(build) {
 
 export async function generateFAQ(build, opts = {}) {
   const { apiKey, fetchImpl } = opts;
-  const raw = await callClaude(
+
+  // Split into 2 batches of 50 to ensure we get all 100
+  const batch1 = await callClaude(
     'claude-sonnet-4-6',
     FAQ_SYSTEM_PROMPT,
-    buildFAQUserMessage(build),
+    buildFAQUserMessage(build) + '\n\nGenerate questions 1-50 now (first half). Use 5-6 categories.',
     { apiKey, fetchImpl, maxTokens: 16384 }
   );
-  return wrapFAQWithSearch(raw);
+
+  const batch2 = await callClaude(
+    'claude-sonnet-4-6',
+    FAQ_SYSTEM_PROMPT,
+    buildFAQUserMessage(build) + '\n\nGenerate questions 51-100 now (second half). Use 5-6 DIFFERENT categories from the first batch. Do not repeat any questions.',
+    { apiKey, fetchImpl, maxTokens: 16384 }
+  );
+
+  return wrapFAQWithSearch(batch1 + '\n' + batch2);
 }
 
 // ── generateSiteCSS ───────────────────────────────────────────────────────────
