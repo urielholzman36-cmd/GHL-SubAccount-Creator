@@ -50,13 +50,24 @@ function stripCodeFences(text) {
 }
 
 /**
- * Wraps HTML content in an Elementor-compatible container structure
- * so it renders with proper sections, padding, and typography on 10web sites.
+ * Wraps HTML content in a styled container that matches 10web's centered layout.
+ * No h1 title — WordPress/theme already displays the page title.
  */
-function wrapInElementorContainer(title, htmlContent) {
-  return `<div class="e-con-boxed e-flex e-con e-parent" style="max-width: 800px; margin: 0 auto; padding: 60px 30px;">
-<div class="e-con-inner">
-<h1 style="font-size: 2em; margin-bottom: 0.5em;">${title}</h1>
+function wrapInStyledContainer(htmlContent) {
+  return `<div style="max-width: 800px; margin: 0 auto; padding: 20px 30px; font-size: 16px; line-height: 1.7; color: #333;">
+<style>
+.vo360-content h2 { font-size: 1.4em; font-weight: 600; margin: 2em 0 0.8em; color: #111; }
+.vo360-content h3 { font-size: 1.15em; font-weight: 600; margin: 1.5em 0 0.5em; color: #222; }
+.vo360-content p { margin: 0 0 1em; }
+.vo360-content ul, .vo360-content ol { margin: 0 0 1em; padding-left: 1.5em; }
+.vo360-content li { margin-bottom: 0.5em; }
+.vo360-content strong { color: #111; }
+.vo360-content hr { border: none; border-top: 1px solid #e5e5e5; margin: 2em 0; }
+.vo360-content .faq-item { margin-bottom: 16px; padding: 18px 0; border-bottom: 1px solid #eee; }
+.vo360-content .faq-question { font-weight: 600; font-size: 1.05em; margin-bottom: 8px; color: #111; }
+.vo360-content .faq-answer { color: #555; line-height: 1.7; }
+</style>
+<div class="vo360-content">
 ${htmlContent}
 </div>
 </div>`;
@@ -130,8 +141,8 @@ export async function generateLegalDocs(build, opts = {}) {
 
   const [privacyRaw, termsRaw] = raw.split('<!-- SPLIT -->');
   return {
-    privacyPolicy: wrapInElementorContainer('Privacy Policy', privacyRaw.trim()),
-    termsOfService: wrapInElementorContainer('Terms of Service', termsRaw.trim()),
+    privacyPolicy: wrapInStyledContainer(privacyRaw.trim()),
+    termsOfService: wrapInStyledContainer(termsRaw.trim()),
   };
 }
 
@@ -178,7 +189,7 @@ export async function generateFAQ(build, opts = {}) {
     buildFAQUserMessage(build),
     { apiKey, fetchImpl, maxTokens: 16384 }
   );
-  return wrapInElementorContainer('Frequently Asked Questions', raw);
+  return wrapInStyledContainer(raw);
 }
 
 // ── generateSiteCSS ───────────────────────────────────────────────────────────
