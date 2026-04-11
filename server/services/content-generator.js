@@ -54,8 +54,18 @@ function stripCodeFences(text) {
  * No h1 title — WordPress/theme already displays the page title.
  */
 function wrapInStyledContainer(htmlContent) {
-  return `<div style="max-width: 800px; margin: 0 auto; padding: 20px 30px; font-size: 16px; line-height: 1.7; color: #333;">
-<style>
+  return `<style>
+/* Center the page title that the theme renders */
+.entry-header, .page-header, .elementor-heading-title,
+h1.entry-title, h1.page-title,
+.elementor-widget-theme-post-title .elementor-heading-title {
+  text-align: center !important;
+  max-width: 800px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+/* Content styling */
+.vo360-content { max-width: 800px; margin: 0 auto; padding: 20px 30px; font-size: 16px; line-height: 1.7; color: #333; }
 .vo360-content h2 { font-size: 1.4em; font-weight: 600; margin: 2em 0 0.8em; color: #111; }
 .vo360-content h3 { font-size: 1.15em; font-weight: 600; margin: 1.5em 0 0.5em; color: #222; }
 .vo360-content p { margin: 0 0 1em; }
@@ -69,7 +79,6 @@ function wrapInStyledContainer(htmlContent) {
 </style>
 <div class="vo360-content">
 ${htmlContent}
-</div>
 </div>`;
 }
 

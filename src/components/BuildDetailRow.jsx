@@ -79,6 +79,8 @@ export default function BuildDetailRow({ buildId }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [cssCopied, setCssCopied] = useState(false);
+  const [showCSS, setShowCSS] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -214,6 +216,55 @@ export default function BuildDetailRow({ buildId }) {
             <p className="text-sm text-white/20">No step details available.</p>
           )}
         </div>
+
+        {/* Page links + CSS for completed builds */}
+        {data?.status === 'completed' && (data?.privacy_policy_url || data?.site_css) && (
+          <div className="mt-4 pt-4 border-t border-white/5 flex flex-wrap gap-4 items-start">
+            {(data.privacy_policy_url || data.terms_url || data.faq_url) && (
+              <div className="flex gap-3">
+                {data.privacy_policy_url && (
+                  <a href={data.privacy_policy_url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-accent-teal hover:text-accent-teal/80 transition">PP ↗</a>
+                )}
+                {data.terms_url && (
+                  <a href={data.terms_url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-accent-teal hover:text-accent-teal/80 transition">ToS ↗</a>
+                )}
+                {data.faq_url && (
+                  <a href={data.faq_url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-accent-teal hover:text-accent-teal/80 transition">FAQ ↗</a>
+                )}
+              </div>
+            )}
+            {data.site_css && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(data.site_css);
+                    setCssCopied(true);
+                    setTimeout(() => setCssCopied(false), 2000);
+                  }}
+                  className={`text-xs font-semibold px-3 py-1 rounded-md transition ${
+                    cssCopied ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-white/40 border border-white/10 hover:text-white/60'
+                  }`}
+                >
+                  {cssCopied ? 'Copied!' : 'Copy Site CSS'}
+                </button>
+                <button
+                  onClick={() => setShowCSS(!showCSS)}
+                  className="text-xs text-white/25 hover:text-white/40 transition"
+                >
+                  {showCSS ? 'Hide' : 'Preview'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        {showCSS && data?.site_css && (
+          <pre className="mt-2 bg-white/3 border border-white/5 rounded-lg p-3 text-xs text-white/30 font-mono max-h-48 overflow-auto whitespace-pre-wrap">
+            {data.site_css}
+          </pre>
+        )}
       </td>
     </tr>
   );

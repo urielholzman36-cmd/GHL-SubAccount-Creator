@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSSE } from '../hooks/useSSE';
 import AwaitingWebsiteBanner from './AwaitingWebsiteBanner';
 
@@ -53,6 +53,19 @@ function formatDuration(ms) {
 export default function ProgressTracker({ buildId, onRetry }) {
   const { phases, steps, buildStatus, buildResult, pauseInfo, reconnect } = useSSE(buildId);
   const [resuming, setResuming] = useState(false);
+  const [buildDetail, setBuildDetail] = useState(null);
+  const [cssCopied, setCssCopied] = useState(false);
+  const [showCSS, setShowCSS] = useState(false);
+
+  // Fetch build details when complete to get CSS and page URLs
+  useEffect(() => {
+    if (buildStatus === 'complete') {
+      fetch(`/api/builds/${buildId}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((d) => setBuildDetail(d))
+        .catch(() => {});
+    }
+  }, [buildStatus, buildId]);
 
   const completedCount = steps.filter((s) => s.status === 'completed' || s.status === 'warning').length;
   const progressPct = Math.round((completedCount / steps.length) * 100);
@@ -184,15 +197,81 @@ export default function ProgressTracker({ buildId, onRetry }) {
 
       {/* Build complete */}
       {buildStatus === 'complete' && buildResult && (
-        <div className="glass rounded-xl p-5 glow-green">
-          <p className="text-base font-bold text-green-400">Onboarding Complete!</p>
-          <p className="text-sm text-white/40 mt-1">
-            The client environment is ready.
-          </p>
-          {buildResult.total_duration_ms != null && (
-            <p className="text-xs text-white/20 mt-2">
-              Total time: {formatDuration(buildResult.total_duration_ms)}
-            </p>
+        <div className="space-y-4">
+          <div className="glass rounded-xl p-5 glow-green">
+            <p className="text-base font-bold text-green-400">Onboarding Complete!</p>
+            <p className="text-sm text-white/40 mt-1">The client environment is ready.</p>
+            {buildResult.total_duration_ms != null && (
+              <p className="text-xs text-white/20 mt-2">
+                Total time: {formatDuration(buildResult.total_duration_ms)}
+              </p>
+            )}
+          </div>
+
+          {/* Published pages */}
+          {buildDetail && (buildDetail.privacy_policy_url || buildDetail.terms_url || buildDetail.faq_url) && (
+            <div className="glass rounded-xl p-5">
+              <p className="text-sm font-bold text-white/70 mb-3">Published Pages</p>
+              <div className="space-y-2">
+                {buildDetail.privacy_policy_url && (
+                  <a href={buildDetail.privacy_policy_url} target="_blank" rel="noopener noreferrer"
+                    className="block text-sm text-accent-teal hover:text-accent-teal/80 transition">
+                    Privacy Policy ↗
+                  </a>
+                )}
+                {buildDetail.terms_url && (
+                  <a href={buildDetail.terms_url} target="_blank" rel="noopener noreferrer"
+                    className="block text-sm text-accent-teal hover:text-accent-teal/80 transition">
+                    Terms of Service ↗
+                  </a>
+                )}
+                {buildDetail.faq_url && (
+                  <a href={buildDetail.faq_url} target="_blank" rel="noopener noreferrer"
+                    className="block text-sm text-accent-teal hover:text-accent-teal/80 transition">
+                    FAQ ↗
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Site CSS */}
+          {buildDetail?.site_css && (
+            <div className="glass rounded-xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-sm font-bold text-white/70">Site CSS</p>
+                  <p className="text-xs text-white/30 mt-0.5">Paste into Elementor → Site Settings → Custom CSS</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(buildDetail.site_css);
+                      setCssCopied(true);
+                      setTimeout(() => setCssCopied(false), 2000);
+                    }}
+                    className={`text-xs font-semibold px-4 py-2 rounded-lg transition-all ${
+                      cssCopied
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                        : 'bg-brand-gradient text-white shadow-lg shadow-magenta/20 hover:opacity-90'
+                    }`}
+                  >
+                    {cssCopied ? 'Copied!' : 'Copy CSS'}
+                  </button>
+                  <button
+                    onClick={() => setShowCSS(!showCSS)}
+                    className="text-xs font-medium text-white/30 border border-white/10 px-3 py-2 rounded-lg hover:bg-white/5 transition"
+                  >
+                    {showCSS ? 'Hide' : 'Preview'}
+                  </button>
+                </div>
+              </div>
+              {showCSS && (
+                <pre className="bg-white/3 border border-white/5 rounded-lg p-3 text-xs text-white/40 font-mono max-h-60 overflow-auto whitespace-pre-wrap">
+                  {buildDetail.site_css}
+                </pre>
+              )}
+            </div>
           )}
         </div>
       )}
