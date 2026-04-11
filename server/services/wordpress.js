@@ -73,6 +73,15 @@ export class WordPressClient {
     return { id: data.id, link: data.link };
   }
 
+  async updatePageContent(pageId, contentPrefix) {
+    // Prepend content (like a <style> block) to an existing page
+    const page = await this._request('GET', `/wp/v2/pages/${pageId}`);
+    const existingContent = page.content?.raw || page.content?.rendered || '';
+    await this._request('PUT', `/wp/v2/pages/${pageId}`, {
+      content: contentPrefix + existingContent,
+    });
+  }
+
   async getCustomCSS() {
     const url = `${this.baseUrl}/wp-json/wp/v2/custom_css`;
     const headers = { 'Authorization': this.authHeader, 'Content-Type': 'application/json' };

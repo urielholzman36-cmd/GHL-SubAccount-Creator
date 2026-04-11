@@ -85,6 +85,7 @@ export function initializeDb(db) {
     ['privacy_policy_url', 'TEXT'],
     ['terms_url', 'TEXT'],
     ['faq_url', 'TEXT'],
+    ['site_css', 'TEXT'],
   ];
   for (const [name, type] of m2bCols) {
     if (!buildCols3.includes(name)) {

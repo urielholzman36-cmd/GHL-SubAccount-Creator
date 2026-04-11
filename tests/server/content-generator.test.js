@@ -171,7 +171,7 @@ describe('generateSiteCSS', () => {
     await generateSiteCSS(sampleBuild(), existingCSS, { apiKey: 'sk-ant-fake', fetchImpl });
 
     const body = JSON.parse(fetchImpl.mock.calls[0][1].body);
-    expect(body.model).toBe('claude-opus-4-6');
+    expect(body.model).toBe('claude-sonnet-4-6');
   });
 
   it('uses max_tokens of 16384', async () => {

@@ -42,12 +42,24 @@ async function callClaude(model, systemPrompt, userMessage, { apiKey, fetchImpl,
 }
 
 function stripCodeFences(text) {
-  // Remove opening ```css or ``` fence and closing ``` fence
   return text
     .replace(/^```css\s*/i, '')
     .replace(/^```\s*/m, '')
     .replace(/\s*```\s*$/m, '')
     .trim();
+}
+
+/**
+ * Wraps HTML content in an Elementor-compatible container structure
+ * so it renders with proper sections, padding, and typography on 10web sites.
+ */
+function wrapInElementorContainer(title, htmlContent) {
+  return `<div class="e-con-boxed e-flex e-con e-parent" style="max-width: 800px; margin: 0 auto; padding: 60px 30px;">
+<div class="e-con-inner">
+<h1 style="font-size: 2em; margin-bottom: 0.5em;">${title}</h1>
+${htmlContent}
+</div>
+</div>`;
 }
 
 // ── generateLegalDocs ─────────────────────────────────────────────────────────
@@ -75,12 +87,19 @@ The Terms of Service must cover:
 - Age requirement (18+)
 - Reference to the Privacy Policy
 
-Format each document as clean HTML (not a full HTML page — just the body content).
+Format rules:
+- Output clean, well-structured HTML body content only (no full HTML page, no <html>/<head>/<body> tags)
+- Use semantic tags: <h2> for section headings, <h3> for subsections, <p> for paragraphs, <ul>/<li> for lists, <strong> for emphasis
+- Do NOT include an <h1> title — we add that separately
+- Make sections clearly separated with proper heading hierarchy
+- Each section should be substantive and thorough — not just one sentence per topic
+- Write professionally but in plain language a customer can understand
+
 Output the Privacy Policy first, then the exact separator line below, then the Terms of Service:
 
 <!-- SPLIT -->
 
-Do not include any text before the Privacy Policy or after the Terms of Service.`;
+Do not include any preamble, commentary, or text outside the two documents.`;
 
 function buildLegalUserMessage(build) {
   return [
@@ -102,17 +121,17 @@ export async function generateLegalDocs(build, opts = {}) {
     'claude-sonnet-4-6',
     LEGAL_SYSTEM_PROMPT,
     buildLegalUserMessage(build),
-    { apiKey, fetchImpl, maxTokens: 4096 }
+    { apiKey, fetchImpl, maxTokens: 8192 }
   );
 
   if (!raw.includes('<!-- SPLIT -->')) {
     throw new Error('generateLegalDocs: Claude response missing <!-- SPLIT --> marker');
   }
 
-  const [privacyPolicy, termsOfService] = raw.split('<!-- SPLIT -->');
+  const [privacyRaw, termsRaw] = raw.split('<!-- SPLIT -->');
   return {
-    privacyPolicy: privacyPolicy.trim(),
-    termsOfService: termsOfService.trim(),
+    privacyPolicy: wrapInElementorContainer('Privacy Policy', privacyRaw.trim()),
+    termsOfService: wrapInElementorContainer('Terms of Service', termsRaw.trim()),
   };
 }
 
@@ -122,19 +141,17 @@ const FAQ_SYSTEM_PROMPT = `You are an expert FAQ generator for business websites
 
 Generate 100 frequently asked questions organized into 8-12 categories relevant to the business.
 
-Format each FAQ item as HTML using these exact classes:
-- faq-item: wrapper div for each Q&A pair
-- faq-question: div containing the question
-- faq-answer: div containing the answer
-
-Example format:
-<div class="faq-item">
-  <div class="faq-question">What services do you offer?</div>
-  <div class="faq-answer">We offer a wide range of services including...</div>
-</div>
-
-Group items under category headings using <h2> tags.
-Output only the HTML — no preamble, no markdown, no explanation.`;
+Format rules:
+- Use <h2> tags for category headings
+- Each Q&A pair uses this exact HTML structure:
+  <div class="faq-item" style="margin-bottom: 20px; padding: 15px; border-bottom: 1px solid #eee;">
+    <div class="faq-question" style="font-weight: 600; font-size: 1.05em; margin-bottom: 8px; color: #222;">Q: [Question text]</div>
+    <div class="faq-answer" style="color: #555; line-height: 1.6;">A: [Answer — 2-4 sentences, specific to the business, not generic]</div>
+  </div>
+- Do NOT include an <h1> title — we add that separately
+- Make every answer specific to this company — no generic filler
+- Distribute roughly 8-12 questions per category
+- Output only the HTML — no preamble, no markdown, no explanation.`;
 
 function buildFAQUserMessage(build) {
   const location = [build.city, build.state].filter(Boolean).join(', ') || 'Not specified';
@@ -155,12 +172,13 @@ function buildFAQUserMessage(build) {
 
 export async function generateFAQ(build, opts = {}) {
   const { apiKey, fetchImpl } = opts;
-  return callClaude(
+  const raw = await callClaude(
     'claude-sonnet-4-6',
     FAQ_SYSTEM_PROMPT,
     buildFAQUserMessage(build),
     { apiKey, fetchImpl, maxTokens: 16384 }
   );
+  return wrapInElementorContainer('Frequently Asked Questions', raw);
 }
 
 // ── generateSiteCSS ───────────────────────────────────────────────────────────
@@ -209,7 +227,7 @@ function buildCSSUserMessage(build, existingCSS) {
 export async function generateSiteCSS(build, existingCSS, opts = {}) {
   const { apiKey, fetchImpl } = opts;
   const raw = await callClaude(
-    'claude-opus-4-6',
+    'claude-sonnet-4-6',
     CSS_SYSTEM_PROMPT,
     buildCSSUserMessage(build, existingCSS),
     { apiKey, fetchImpl, maxTokens: 16384 }

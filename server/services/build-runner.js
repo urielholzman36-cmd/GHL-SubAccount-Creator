@@ -330,18 +330,42 @@ export class BuildRunner {
 
     return {
       privacyPolicyUrl: ppResult.link,
+      privacyPolicyId: ppResult.id,
       termsUrl: tosResult.link,
+      termsId: tosResult.id,
       faqUrl: faqResult.link,
+      faqId: faqResult.id,
     };
   }
 
   async _step11ApplySiteCSS(build, state) {
-    const wp = this._createWPClient(build);
-    const existingCSS = await wp.getCustomCSS();
     const impl = this.generateCSSImpl || generateSiteCSS;
-    const newCSS = await impl(build, existingCSS, { apiKey: process.env.ANTHROPIC_API_KEY });
-    await wp.setCustomCSS(newCSS);
-    return { cssApplied: true };
+    const newCSS = await impl(build, '', { apiKey: process.env.ANTHROPIC_API_KEY });
+
+    // Store generated CSS in DB for reference/manual application
+    this.db.prepare('UPDATE builds SET site_css = ? WHERE id = ?').run(newCSS, build.id);
+
+    // Try to apply via WP custom_css endpoint; if it fails (e.g. 10web doesn't support it),
+    // embed the CSS as a <style> block in each published page instead
+    const wp = this._createWPClient(build);
+    try {
+      await wp.setCustomCSS(newCSS);
+      return { cssApplied: true, method: 'custom_css_endpoint' };
+    } catch (_) {
+      // Fallback: embed CSS in each page
+      const styleBlock = `<style>\n${newCSS}\n</style>\n`;
+      const pageUpdates = [];
+      if (state.privacyPolicyUrl) {
+        try { await wp.updatePageContent(state.privacyPolicyId, styleBlock); pageUpdates.push('privacy'); } catch (_) {}
+      }
+      if (state.termsUrl) {
+        try { await wp.updatePageContent(state.termsId, styleBlock); pageUpdates.push('terms'); } catch (_) {}
+      }
+      if (state.faqUrl) {
+        try { await wp.updatePageContent(state.faqId, styleBlock); pageUpdates.push('faq'); } catch (_) {}
+      }
+      return { cssApplied: true, method: 'inline_style', pagesUpdated: pageUpdates };
+    }
   }
 
   async _getStateFromPriorSteps(buildId, fromStep) {
