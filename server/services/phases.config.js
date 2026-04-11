@@ -25,7 +25,6 @@ export const PHASES = [
       { number: 8, name: 'Generate Legal Pages' },
       { number: 9, name: 'Generate FAQ' },
       { number: 10, name: 'Publish Pages' },
-      { number: 11, name: 'Apply Site CSS', optional: true },
     ],
   },
 ];

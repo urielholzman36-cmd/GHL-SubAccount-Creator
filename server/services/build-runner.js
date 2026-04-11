@@ -3,7 +3,7 @@ import { PHASES, getPhaseForStep, isStepOptional } from './phases.config.js';
 import { generatePrompt as realGeneratePrompt } from './prompt-generator.js';
 import { encrypt, decrypt } from './crypto.js';
 import { WordPressClient } from './wordpress.js';
-import { generateLegalDocs, generateFAQ, generateSiteCSS } from './content-generator.js';
+import { generateLegalDocs, generateFAQ } from './content-generator.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_BACKOFF_MS = [1000, 2000, 4000];
 const MAX_RETRIES = 3;
-const DEFAULT_PLUGINS = ['allaccessible', 'leadconnector', 'wp-call-button'];
+const DEFAULT_PLUGINS = ['allaccessible', 'wp-call-button'];
 
 export const SNAPSHOT_ID = 'SnbFmqepikqgzI5tgEZ6';
 
@@ -38,7 +38,6 @@ export class BuildRunner {
     this.wpFetchImpl = options.wpFetchImpl || null;
     this.generateLegalImpl = options.generateLegalImpl || null;
     this.generateFAQImpl = options.generateFAQImpl || null;
-    this.generateCSSImpl = options.generateCSSImpl || null;
   }
 
   async run(buildId, emit) {
@@ -183,7 +182,6 @@ export class BuildRunner {
       case 8: return await this._step8GenerateLegal(freshBuild);
       case 9: return await this._step9GenerateFAQ(freshBuild);
       case 10: return await this._step10PublishPages(freshBuild, state);
-      case 11: return await this._step11ApplySiteCSS(freshBuild, state);
       default: throw new Error(`Unknown step number: ${stepNumber}`);
     }
   }
@@ -342,36 +340,6 @@ export class BuildRunner {
       faqUrl: faqResult.link,
       faqId: faqResult.id,
     };
-  }
-
-  async _step11ApplySiteCSS(build, state) {
-    const impl = this.generateCSSImpl || generateSiteCSS;
-    const newCSS = await impl(build, '', { apiKey: process.env.ANTHROPIC_API_KEY });
-
-    // Store generated CSS in DB for reference/manual application
-    this.db.prepare('UPDATE builds SET site_css = ? WHERE id = ?').run(newCSS, build.id);
-
-    // Try to apply via WP custom_css endpoint; if it fails (e.g. 10web doesn't support it),
-    // embed the CSS as a <style> block in each published page instead
-    const wp = this._createWPClient(build);
-    try {
-      await wp.setCustomCSS(newCSS);
-      return { cssApplied: true, method: 'custom_css_endpoint' };
-    } catch (_) {
-      // Fallback: embed CSS in each page
-      const styleBlock = `<style>\n${newCSS}\n</style>\n`;
-      const pageUpdates = [];
-      if (state.privacyPolicyUrl) {
-        try { await wp.updatePageContent(state.privacyPolicyId, styleBlock); pageUpdates.push('privacy'); } catch (_) {}
-      }
-      if (state.termsUrl) {
-        try { await wp.updatePageContent(state.termsId, styleBlock); pageUpdates.push('terms'); } catch (_) {}
-      }
-      if (state.faqUrl) {
-        try { await wp.updatePageContent(state.faqId, styleBlock); pageUpdates.push('faq'); } catch (_) {}
-      }
-      return { cssApplied: true, method: 'inline_style', pagesUpdated: pageUpdates };
-    }
   }
 
   async _getStateFromPriorSteps(buildId, fromStep) {

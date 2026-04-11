@@ -27,7 +27,6 @@ const DEFAULT_PHASES = [
       { step: 8, name: 'Generate Legal Pages' },
       { step: 9, name: 'Generate FAQ' },
       { step: 10, name: 'Publish Pages' },
-      { step: 11, name: 'Apply Site CSS' },
     ],
   },
 ];

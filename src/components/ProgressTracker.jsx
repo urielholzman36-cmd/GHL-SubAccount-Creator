@@ -54,10 +54,7 @@ export default function ProgressTracker({ buildId, onRetry }) {
   const { phases, steps, buildStatus, buildResult, pauseInfo, reconnect } = useSSE(buildId);
   const [resuming, setResuming] = useState(false);
   const [buildDetail, setBuildDetail] = useState(null);
-  const [cssCopied, setCssCopied] = useState(false);
-  const [showCSS, setShowCSS] = useState(false);
-
-  // Fetch build details when complete to get CSS and page URLs
+  // Fetch build details when complete to get page URLs
   useEffect(() => {
     if (buildStatus === 'complete') {
       fetch(`/api/builds/${buildId}`)
@@ -235,44 +232,6 @@ export default function ProgressTracker({ buildId, onRetry }) {
             </div>
           )}
 
-          {/* Site CSS */}
-          {buildDetail?.site_css && (
-            <div className="glass rounded-xl p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-sm font-bold text-white/70">Site CSS</p>
-                  <p className="text-xs text-white/30 mt-0.5">Paste into Elementor → Site Settings → Custom CSS</p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(buildDetail.site_css);
-                      setCssCopied(true);
-                      setTimeout(() => setCssCopied(false), 2000);
-                    }}
-                    className={`text-xs font-semibold px-4 py-2 rounded-lg transition-all ${
-                      cssCopied
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                        : 'bg-brand-gradient text-white shadow-lg shadow-magenta/20 hover:opacity-90'
-                    }`}
-                  >
-                    {cssCopied ? 'Copied!' : 'Copy CSS'}
-                  </button>
-                  <button
-                    onClick={() => setShowCSS(!showCSS)}
-                    className="text-xs font-medium text-white/30 border border-white/10 px-3 py-2 rounded-lg hover:bg-white/5 transition"
-                  >
-                    {showCSS ? 'Hide' : 'Preview'}
-                  </button>
-                </div>
-              </div>
-              {showCSS && (
-                <pre className="bg-white/3 border border-white/5 rounded-lg p-3 text-xs text-white/40 font-mono max-h-60 overflow-auto whitespace-pre-wrap">
-                  {buildDetail.site_css}
-                </pre>
-              )}
-            </div>
-          )}
         </div>
       )}
 

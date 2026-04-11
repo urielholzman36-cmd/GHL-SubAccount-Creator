@@ -31,7 +31,15 @@ export class WordPressClient {
   }
 
   async installPlugin(slug) {
-    return this._request('POST', '/wp/v2/plugins', { slug, status: 'active' });
+    try {
+      return await this._request('POST', '/wp/v2/plugins', { slug, status: 'active' });
+    } catch (err) {
+      // If plugin folder already exists, try to activate it instead
+      if (err.message && err.message.includes('folder_exists')) {
+        return await this._request('PUT', `/wp/v2/plugins/${slug}/${slug}`, { status: 'active' });
+      }
+      throw err;
+    }
   }
 
   async uploadMedia(fileBuffer, filename, mimeType) {

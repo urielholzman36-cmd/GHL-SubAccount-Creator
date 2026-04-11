@@ -250,7 +250,7 @@ describe('BuildRunner — M2b (Steps 4-10)', () => {
     expect(step4).toBeDefined();
   });
 
-  it('step 5 installs 3 plugins', async () => {
+  it('step 5 installs 2 plugins', async () => {
     const { events } = await runThroughResume(db, ghl);
 
     const step5 = events.find((e) => e.type === 'step-update' && e.step === 5 && e.status === 'completed');
@@ -260,8 +260,8 @@ describe('BuildRunner — M2b (Steps 4-10)', () => {
     const steps = queries.getBuildSteps(db, 'build-full-1');
     const step5Row = steps.find((s) => s.step_number === 5);
     const result = JSON.parse(step5Row.api_response);
-    expect(result.pluginsInstalled).toHaveLength(3);
-    expect(result.pluginsInstalled.map((p) => p.slug)).toEqual(['allaccessible', 'leadconnector', 'wp-call-button']);
+    expect(result.pluginsInstalled).toHaveLength(2);
+    expect(result.pluginsInstalled.map((p) => p.slug)).toEqual(['allaccessible', 'wp-call-button']);
   });
 
   it('step 5 continues even if a plugin install fails', async () => {
