@@ -73,6 +73,28 @@ export class WordPressClient {
     return { id: data.id, link: data.link };
   }
 
+  async setPageStatus(pageId, status) {
+    await this._request('PUT', `/wp/v2/pages/${pageId}`, { status });
+  }
+
+  async findPagesByTitle(title) {
+    const data = await this._request('GET', `/wp/v2/pages?search=${encodeURIComponent(title)}&per_page=50`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  async draftDuplicatePages(title, keepPageId) {
+    try {
+      const pages = await this.findPagesByTitle(title);
+      for (const page of pages) {
+        if (page.id !== keepPageId && page.status === 'publish') {
+          await this.setPageStatus(page.id, 'draft');
+        }
+      }
+    } catch (_) {
+      // Best-effort — don't fail the build if we can't draft old pages
+    }
+  }
+
   async updatePageContent(pageId, contentPrefix) {
     // Prepend content (like a <style> block) to an existing page
     const page = await this._request('GET', `/wp/v2/pages/${pageId}`);

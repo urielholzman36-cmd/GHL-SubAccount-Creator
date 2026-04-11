@@ -324,6 +324,12 @@ export class BuildRunner {
     const tosResult = await wp.createPage('Terms of Service', state.termsOfService);
     const faqResult = await wp.createPage('FAQ', state.faqHtml);
 
+    // Move any pre-existing 10web pages with the same titles to draft
+    await wp.draftDuplicatePages('Privacy Policy', ppResult.id);
+    await wp.draftDuplicatePages('Terms of Service', tosResult.id);
+    await wp.draftDuplicatePages('Terms and Conditions', -1); // 10web sometimes names it this
+    await wp.draftDuplicatePages('FAQ', faqResult.id);
+
     this.db.prepare(
       'UPDATE builds SET privacy_policy_url = ?, terms_url = ?, faq_url = ? WHERE id = ?'
     ).run(ppResult.link, tosResult.link, faqResult.link, build.id);
