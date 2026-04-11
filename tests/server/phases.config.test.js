@@ -20,11 +20,11 @@ describe('phases config', () => {
     expect(p2.steps.map((s) => s.number)).toEqual([2, 3]);
   });
 
-  it('defines phase 3 with steps 4-11', () => {
+  it('defines phase 3 with steps 4-10', () => {
     const p3 = PHASES.find((p) => p.id === 3);
     expect(p3).toBeDefined();
     expect(p3.name).toBe('WordPress Setup');
-    expect(p3.steps.map((s) => s.number)).toEqual([4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(p3.steps.map((s) => s.number)).toEqual([4, 5, 6, 7, 8, 9, 10]);
   });
 
   it('step 2 is Generate 10web Prompt (fatal)', () => {
@@ -45,12 +45,12 @@ describe('phases config', () => {
     expect(getPhaseForStep(3)).toBe(2);
     expect(getPhaseForStep(4)).toBe(3);
     expect(getPhaseForStep(7)).toBe(3);
-    expect(getPhaseForStep(11)).toBe(3);
+    expect(getPhaseForStep(10)).toBe(3);
     expect(getPhaseForStep(99)).toBe(null);
   });
 
-  it('getAllSteps returns all 11 steps in order', () => {
-    expect(getAllSteps().map((s) => s.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  it('getAllSteps returns all 10 steps in order', () => {
+    expect(getAllSteps().map((s) => s.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
 
   it('getStepName returns each step name', () => {
@@ -64,11 +64,10 @@ describe('phases config', () => {
     expect(getStepName(8)).toBe('Generate Legal Pages');
     expect(getStepName(9)).toBe('Generate FAQ');
     expect(getStepName(10)).toBe('Publish Pages');
-    expect(getStepName(11)).toBe('Apply Site CSS');
   });
 
-  it('getTotalStepCount returns 11', () => {
-    expect(getTotalStepCount()).toBe(11);
+  it('getTotalStepCount returns 10', () => {
+    expect(getTotalStepCount()).toBe(10);
   });
 
   it('step 7 is optional', () => {

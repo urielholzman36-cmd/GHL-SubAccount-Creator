@@ -232,7 +232,7 @@ describe('BuildRunner — M2a', () => {
   });
 });
 
-describe('BuildRunner — M2b (Steps 4-11)', () => {
+describe('BuildRunner — M2b (Steps 4-10)', () => {
   let db, ghl;
 
   beforeEach(() => {
@@ -342,24 +342,15 @@ describe('BuildRunner — M2b (Steps 4-11)', () => {
     expect(row.faq_url).toContain('https://example.com/page-');
   });
 
-  it('step 11 applies site CSS', async () => {
-    const cssImpl = vi.fn().mockResolvedValue('body { font-family: sans-serif; }');
-    const { events } = await runThroughResume(db, ghl, { generateCSSImpl: cssImpl, buildId: 'build-css-1' });
-
-    const step11 = events.find((e) => e.type === 'step-update' && e.step === 11 && e.status === 'completed');
-    expect(step11).toBeDefined();
-    expect(cssImpl).toHaveBeenCalledTimes(1);
-  });
-
-  it('full pipeline from step 1 through 11 completes successfully', async () => {
+  it('full pipeline from step 1 through 10 completes successfully', async () => {
     const { build, events } = await runThroughResume(db, ghl);
 
     const row = queries.getBuildById(db, build.id);
     expect(row.status).toBe('completed');
 
-    // Verify all 11 steps completed
+    // Verify all 10 steps completed
     const steps = queries.getBuildSteps(db, build.id);
-    for (let i = 0; i < 11; i++) {
+    for (let i = 0; i < 10; i++) {
       expect(steps[i].step_number).toBe(i + 1);
       expect(steps[i].status).toBe('completed');
     }
