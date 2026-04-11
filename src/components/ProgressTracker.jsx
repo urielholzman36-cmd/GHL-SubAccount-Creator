@@ -232,6 +232,15 @@ export default function ProgressTracker({ buildId, onRetry }) {
             </div>
           )}
 
+          {/* Manual reminder */}
+          <div className="glass rounded-xl p-5 border border-amber-500/20">
+            <p className="text-sm font-bold text-amber-400">Manual Steps Required</p>
+            <ul className="mt-2 space-y-2 text-sm text-white/40">
+              <li>1. Go to the sub-account → <strong className="text-white/60">Settings → My Staff</strong> → Add yourself as admin</li>
+              <li>2. Install the <strong className="text-white/60">LeadConnector</strong> plugin manually from the GHL sub-account</li>
+            </ul>
+          </div>
+
         </div>
       )}
 
