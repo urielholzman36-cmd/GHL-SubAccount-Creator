@@ -82,6 +82,84 @@ ${htmlContent}
 </div>`;
 }
 
+function wrapFAQWithSearch(htmlContent) {
+  return `<style>
+.entry-header, .page-header, .elementor-heading-title,
+h1.entry-title, h1.page-title,
+.elementor-widget-theme-post-title .elementor-heading-title {
+  text-align: center !important;
+  max-width: 800px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+.vo360-content { max-width: 800px; margin: 0 auto; padding: 20px 30px; font-size: 16px; line-height: 1.7; color: #333; }
+.vo360-content h2 { font-size: 1.4em; font-weight: 600; margin: 2em 0 0.8em; color: #111; }
+.vo360-content .faq-item { margin-bottom: 16px; padding: 18px 0; border-bottom: 1px solid #eee; }
+.vo360-content .faq-question { font-weight: 600; font-size: 1.05em; margin-bottom: 8px; color: #111; cursor: pointer; }
+.vo360-content .faq-answer { color: #555; line-height: 1.7; }
+.vo360-content .faq-item.hidden { display: none; }
+.vo360-content .faq-category.hidden { display: none; }
+#faq-search {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto 30px;
+  display: block;
+  padding: 14px 20px;
+  font-size: 16px;
+  border: 2px solid #e5e5e5;
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+#faq-search:focus { border-color: #333; }
+#faq-search::placeholder { color: #aaa; }
+#faq-count { text-align: center; color: #999; font-size: 14px; margin-bottom: 20px; }
+</style>
+<div style="max-width: 800px; margin: 0 auto; padding: 20px 30px;">
+<input type="text" id="faq-search" placeholder="Search FAQs..." />
+<div id="faq-count"></div>
+</div>
+<div class="vo360-content" id="faq-container">
+${htmlContent}
+</div>
+<script>
+(function() {
+  var input = document.getElementById('faq-search');
+  var container = document.getElementById('faq-container');
+  var countEl = document.getElementById('faq-count');
+  var items = container.querySelectorAll('.faq-item');
+  var categories = container.querySelectorAll('h2');
+  var total = items.length;
+  countEl.textContent = total + ' questions';
+
+  input.addEventListener('input', function() {
+    var q = this.value.toLowerCase().trim();
+    var visible = 0;
+    items.forEach(function(item) {
+      var text = item.textContent.toLowerCase();
+      var match = !q || text.indexOf(q) !== -1;
+      item.classList.toggle('hidden', !match);
+      if (match) visible++;
+    });
+    // Hide category headings if all their items are hidden
+    categories.forEach(function(h2) {
+      var next = h2.nextElementSibling;
+      var hasVisible = false;
+      while (next && next.tagName !== 'H2') {
+        if (next.classList.contains('faq-item') && !next.classList.contains('hidden')) {
+          hasVisible = true;
+        }
+        next = next.nextElementSibling;
+      }
+      h2.classList.toggle('hidden', !hasVisible);
+    });
+    countEl.textContent = q ? visible + ' of ' + total + ' questions' : total + ' questions';
+  });
+})();
+</script>`;
+}
+
 // ── generateLegalDocs ─────────────────────────────────────────────────────────
 
 const LEGAL_SYSTEM_PROMPT = `You are an expert legal compliance specialist.
@@ -198,7 +276,7 @@ export async function generateFAQ(build, opts = {}) {
     buildFAQUserMessage(build),
     { apiKey, fetchImpl, maxTokens: 16384 }
   );
-  return wrapInStyledContainer(raw);
+  return wrapFAQWithSearch(raw);
 }
 
 // ── generateSiteCSS ───────────────────────────────────────────────────────────
