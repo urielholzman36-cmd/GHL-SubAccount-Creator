@@ -1,3 +1,5 @@
+import { initializeSocialTables } from './social-schema.js';
+
 export function initializeDb(db) {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
@@ -92,4 +94,7 @@ export function initializeDb(db) {
       db.exec(`ALTER TABLE builds ADD COLUMN ${name} ${type}`);
     }
   }
+
+  // M3 Social Planner tables
+  initializeSocialTables(db);
 }
