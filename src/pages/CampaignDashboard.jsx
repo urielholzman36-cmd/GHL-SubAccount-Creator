@@ -48,8 +48,8 @@ export default function CampaignDashboard() {
   const [startDate, setStartDate] = useState('');
   const [starting, setStarting] = useState(false);
 
-  useEffect(() => {
-    fetch(`/api/campaigns/${id}`)
+  function fetchCampaign() {
+    return fetch(`/api/campaigns/${id}`)
       .then((r) => r.json())
       .then((data) => {
         const c = data.campaign || data;
@@ -57,10 +57,20 @@ export default function CampaignDashboard() {
         if (c.month) setMonth(c.month);
         if (c.theme) setTheme(c.theme);
         if (c.start_date) setStartDate(c.start_date);
+        return c;
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [id]);
+  }
+
+  useEffect(() => { fetchCampaign(); }, [id]);
+
+  // Refetch when SSE status changes (posts are created during pipeline)
+  useEffect(() => {
+    if (sseStatus && sseStatus !== 'draft') {
+      fetchCampaign();
+    }
+  }, [sseStatus]);
 
   async function startPipeline() {
     setStarting(true);

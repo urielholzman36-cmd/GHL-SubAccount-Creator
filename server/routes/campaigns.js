@@ -38,18 +38,15 @@ export function createCampaignsRouter(db) {
     res.flushHeaders();
 
     // Replay current state on connect
-    const posts = socialQueries.listCampaignPosts(db, id);
-    res.write(`data: ${JSON.stringify({ type: 'state', campaign, posts })}\n\n`);
+    res.write(`data: ${JSON.stringify({
+      type: 'state-replay',
+      status: campaign.status,
+      current_step: campaign.current_step,
+    })}\n\n`);
 
     // If already finished, send final event and close
-    if (campaign.status === 'completed') {
-      res.write(`data: ${JSON.stringify({ type: 'campaign-complete', campaignId: id })}\n\n`);
-      res.end();
-      return;
-    }
-
-    if (campaign.status === 'failed') {
-      res.write(`data: ${JSON.stringify({ type: 'campaign-failed', campaignId: id })}\n\n`);
+    if (campaign.status === 'exported') {
+      res.write(`data: ${JSON.stringify({ type: 'campaign-complete' })}\n\n`);
       res.end();
       return;
     }

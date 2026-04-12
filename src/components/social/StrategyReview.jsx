@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const PILLAR_COLORS = {
   PAIN: 'bg-red-500/20 text-red-300 border-red-500/30',
@@ -19,6 +19,11 @@ export default function StrategyReview({ campaignId, posts, onApprove }) {
   const [expanded, setExpanded] = useState({});
   const [saving, setSaving] = useState({});
   const [approving, setApproving] = useState(false);
+
+  // Sync when posts prop changes (e.g. after refetch)
+  useEffect(() => {
+    if (posts && posts.length > 0) setLocalPosts(posts);
+  }, [posts]);
 
   const toggleExpand = (id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
 
@@ -102,7 +107,7 @@ export default function StrategyReview({ campaignId, posts, onApprove }) {
             </div>
 
             {/* Concept title */}
-            <p className="text-sm font-semibold text-white mb-2">{post.concept_title || post.title || 'Untitled'}</p>
+            <p className="text-sm font-semibold text-white mb-2">{post.concept || post.concept_title || post.title || 'Untitled'}</p>
 
             {/* Caption - collapsible */}
             <div className="mb-2">
