@@ -3,7 +3,12 @@ import { AuthProvider, useAuth } from './hooks/useAuth.jsx';
 import Login from './pages/Login';
 import NewBuild from './pages/NewBuild';
 import BuildHistory from './pages/BuildHistory';
+import SocialPlanner from './pages/SocialPlanner';
+import ClientProfile from './pages/ClientProfile';
+import ClientCampaigns from './pages/ClientCampaigns';
+import CampaignDashboard from './pages/CampaignDashboard';
 import Sidebar from './components/Sidebar';
+import HamburgerNav from './components/HamburgerNav';
 
 function ProtectedLayout() {
   const { authenticated, logout } = useAuth();
@@ -23,6 +28,7 @@ function ProtectedLayout() {
 
   return (
     <div className="min-h-screen bg-navy flex">
+      <HamburgerNav />
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-auto">
         <header className="flex justify-end items-center px-6 py-3 border-b border-white/5">
@@ -51,6 +57,11 @@ function ProtectedLayout() {
                 </div>
               }
             />
+            <Route path="/social" element={<SocialPlanner />} />
+            <Route path="/social/client/new" element={<ClientProfile />} />
+            <Route path="/social/client/:id" element={<ClientProfile />} />
+            <Route path="/social/client/:id/campaigns" element={<ClientCampaigns />} />
+            <Route path="/social/campaign/:id" element={<CampaignDashboard />} />
           </Routes>
         </main>
       </div>
