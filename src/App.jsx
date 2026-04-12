@@ -7,11 +7,12 @@ import SocialPlanner from './pages/SocialPlanner';
 import ClientProfile from './pages/ClientProfile';
 import ClientCampaigns from './pages/ClientCampaigns';
 import CampaignDashboard from './pages/CampaignDashboard';
+import Users from './pages/Users';
 import Sidebar from './components/Sidebar';
 import HamburgerNav from './components/HamburgerNav';
 
 function ProtectedLayout() {
-  const { authenticated, logout } = useAuth();
+  const { authenticated, username, logout } = useAuth();
   if (authenticated === null)
     return (
       <div className="min-h-screen bg-navy flex items-center justify-center text-white/30">
@@ -33,7 +34,7 @@ function ProtectedLayout() {
       <div className="flex-1 flex flex-col overflow-auto">
         <header className="flex justify-end items-center px-6 py-3 border-b border-white/5">
           <div className="flex items-center gap-4 text-sm">
-            <span className="text-white/30">Team</span>
+            {username && <span className="text-white/30">{username}</span>}
             <button
               onClick={logout}
               className="text-white/20 hover:text-white/50 transition-colors text-xs"
@@ -57,6 +58,7 @@ function ProtectedLayout() {
                 </div>
               }
             />
+            <Route path="/users" element={<Users />} />
             <Route path="/social" element={<SocialPlanner />} />
             <Route path="/social/client/new" element={<ClientProfile />} />
             <Route path="/social/client/:id" element={<ClientProfile />} />

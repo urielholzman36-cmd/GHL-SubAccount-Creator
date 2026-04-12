@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth.jsx';
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -13,7 +14,7 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const result = await login(password);
+    const result = await login(username, password);
     setLoading(false);
     if (result.ok) {
       navigate('/');
@@ -38,6 +39,24 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label
+              htmlFor="username"
+              className="block text-xs font-semibold text-white/40 uppercase tracking-wider mb-2"
+            >
+              Username
+            </label>
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-magenta/50 focus:ring-1 focus:ring-magenta/30 transition"
+              placeholder="Enter username"
+            />
+          </div>
+
           <div>
             <label
               htmlFor="password"

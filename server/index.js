@@ -26,17 +26,12 @@ const projectRoot = join(__dirname, '..');
 const db = new Database(join(projectRoot, 'data.db'));
 initializeDb(db);
 
-// ─── First-boot: hash and store APP_PASSWORD ─────────────────────────────────
-const existingHash = getSetting(db, 'password_hash');
-if (!existingHash) {
-  const rawPassword = process.env.APP_PASSWORD;
-  if (!rawPassword) {
-    console.error('ERROR: APP_PASSWORD is not set in .env');
-    process.exit(1);
-  }
-  const hash = await bcrypt.hash(rawPassword, 12);
-  setSetting(db, 'password_hash', hash);
-  console.log('App password stored (first boot).');
+// ─── First-boot: seed default user if users table is empty ──────────────────
+const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+if (userCount === 0) {
+  const hash = await bcrypt.hash('Ur25072002', 12);
+  db.prepare('INSERT INTO users (username, password_hash, display_name) VALUES (?, ?, ?)').run('uriel_holzman', hash, 'Uriel');
+  console.log('Default user "uriel_holzman" created (first boot).');
 }
 
 // ─── Auto-generate SESSION_SECRET if not set ─────────────────────────────────
