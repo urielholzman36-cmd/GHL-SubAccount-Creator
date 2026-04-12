@@ -13,6 +13,8 @@ import { requireAuth } from './middleware/auth.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createBuildsRouter } from './routes/builds.js';
 import { createStatsRouter } from './routes/stats.js';
+import { createClientsRouter } from './routes/clients.js';
+import { createCampaignsRouter } from './routes/campaigns.js';
 
 const require = createRequire(import.meta.url);
 const SqliteStore = require('better-sqlite3-session-store')(session);
@@ -69,6 +71,8 @@ app.use(
 app.use('/api/auth', createAuthRouter(db));
 app.use('/api/builds', requireAuth, createBuildsRouter(db));
 app.use('/api/stats', requireAuth, createStatsRouter(db));
+app.use('/api/clients', requireAuth, createClientsRouter(db));
+app.use('/api/campaigns', requireAuth, createCampaignsRouter(db));
 
 // ─── Static files (production) ───────────────────────────────────────────────
 const distPath = join(projectRoot, 'dist');
