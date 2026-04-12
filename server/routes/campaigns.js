@@ -67,12 +67,27 @@ export function createCampaignsRouter(db) {
     });
   });
 
-  // GET /:id/csv — download the generated CSV
-  router.get('/:id/csv', (req, res) => {
+  // GET /:id/csv — generate and download CSV on-the-fly (always reflects latest edits)
+  router.get('/:id/csv', async (req, res) => {
+    const { buildGhlCsv } = await import('../services/social-csv.js');
     const campaign = socialQueries.getCampaign(db, req.params.id);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
-    if (!campaign.csv_path) return res.status(404).json({ error: 'CSV not ready' });
-    res.download(campaign.csv_path);
+
+    const client = socialQueries.getClient(db, campaign.client_id);
+    const posts = socialQueries.listCampaignPosts(db, campaign.id);
+    if (!posts || posts.length === 0) return res.status(404).json({ error: 'No posts to export' });
+
+    const platforms = (() => {
+      try { return JSON.parse(client?.platforms || '["facebook","instagram"]'); }
+      catch { return ['facebook', 'instagram']; }
+    })();
+
+    const csv = buildGhlCsv(posts, client?.posting_time || '09:00:00', platforms);
+    const clientName = (client?.name || 'campaign').replace(/[^a-zA-Z0-9]/g, '-');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${clientName}-social-plan.csv"`);
+    res.send(csv);
   });
 
   // GET /:id — get single campaign with posts
