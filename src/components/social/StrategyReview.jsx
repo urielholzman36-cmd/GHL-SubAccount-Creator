@@ -66,9 +66,12 @@ export default function StrategyReview({ campaignId, posts, onApprove }) {
 
   return (
     <div className="mt-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-white">Strategy Review</h2>
-        <span className="text-sm text-white/40">{localPosts.length} posts</span>
+      <div className="relative pt-4 mb-4">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] opacity-40" />
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white">Strategy Review</h2>
+          <span className="text-sm text-white/40">{localPosts.length} posts</span>
+        </div>
       </div>
 
       <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">

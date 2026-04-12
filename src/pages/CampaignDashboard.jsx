@@ -188,14 +188,20 @@ export default function CampaignDashboard() {
           return (
             <div
               key={step.number}
-              className="bg-white/5 border border-white/10 rounded-xl p-4"
+              className={`bg-white/[0.04] border border-white/[0.08] rounded-xl p-4 transition-all duration-200 ${
+                stepStatus === 'completed'
+                  ? 'shadow-sm shadow-emerald-500/20'
+                  : stepStatus === 'running'
+                  ? 'shadow-sm shadow-blue-500/20 border-blue-500/20'
+                  : ''
+              }`}
             >
               <div className="flex items-center gap-4">
                 {/* Step number circle */}
                 <div
                   className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
                     stepStatus === 'completed'
-                      ? 'bg-emerald-500/20 text-emerald-400'
+                      ? 'bg-gradient-to-br from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] text-white'
                       : stepStatus === 'running'
                       ? 'bg-blue-500/20 text-blue-400 animate-pulse'
                       : stepStatus === 'failed'
@@ -205,7 +211,11 @@ export default function CampaignDashboard() {
                       : 'bg-white/10 text-white/30'
                   }`}
                 >
-                  {stepStatus === 'completed' ? '✓' : step.number}
+                  {stepStatus === 'completed' ? (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  ) : step.number}
                 </div>
 
                 {/* Name + phase */}

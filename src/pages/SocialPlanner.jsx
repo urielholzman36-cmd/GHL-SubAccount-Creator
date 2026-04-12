@@ -72,7 +72,7 @@ export default function SocialPlanner() {
         <div className="flex gap-3">
           <button
             onClick={openImportModal}
-            className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors"
+            className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors cursor-pointer"
           >
             Import from Build
           </button>
@@ -94,7 +94,9 @@ export default function SocialPlanner() {
       {!loading && clients.length === 0 && (
         <div className="flex flex-col items-center justify-center py-24">
           <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4">
-            <span className="text-2xl text-white/30">👤</span>
+            <svg className="w-7 h-7 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
           </div>
           <p className="text-white/50 mb-4">No clients yet</p>
           <button
@@ -113,12 +115,13 @@ export default function SocialPlanner() {
             <button
               key={client.id}
               onClick={() => navigate(`/social/client/${client.id}/campaigns`)}
-              className="bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 rounded-xl p-5 text-left transition-all group"
+              className="bg-white/[0.04] border border-white/[0.08] backdrop-blur-xl hover:bg-white/[0.08] hover:border-white/[0.15] hover:shadow-lg hover:shadow-[#3b82f6]/10 rounded-xl p-6 text-left transition-all duration-200 group cursor-pointer"
             >
               <div className="flex items-center gap-4">
                 {/* Logo initial */}
                 <div
-                  className={`w-12 h-12 rounded-full bg-gradient-to-br ${getGradient(client.name)} flex items-center justify-center text-white font-bold text-lg shrink-0`}
+                  className={`w-13 h-13 rounded-full bg-gradient-to-br ${getGradient(client.name)} flex items-center justify-center text-white font-bold text-lg shrink-0 ring-2 ring-transparent group-hover:ring-[#3b82f6]/30 transition-all duration-200`}
+                  style={{ width: '3.25rem', height: '3.25rem' }}
                 >
                   {(client.name || '?')[0].toUpperCase()}
                 </div>

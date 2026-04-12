@@ -64,7 +64,8 @@ export default function HamburgerNav() {
       >
         {/* Brand header */}
         <div className="px-4 pt-20 pb-6">
-          <img src={new URL('../assets/vo360-logo.png', import.meta.url).href} alt="VO360" className="h-9 w-auto" />
+          <img src={new URL('../assets/vo360-logo.png', import.meta.url).href} alt="VO360" className="w-36 h-auto" />
+          <p className="gradient-text text-xs mt-1.5 font-semibold pl-1">Client Onboarding Hub</p>
         </div>
 
         <div className="mx-5 h-px bg-brand-gradient-r opacity-20 mb-3" />

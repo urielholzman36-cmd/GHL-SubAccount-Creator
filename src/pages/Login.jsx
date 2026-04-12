@@ -33,8 +33,8 @@ export default function Login() {
         <div className="absolute top-0 left-6 right-6 h-px bg-brand-gradient-r opacity-40" />
 
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold gradient-text tracking-wide">VO360</h1>
-          <p className="text-white/30 text-sm mt-1 font-medium">Client Onboarding Hub</p>
+          <img src={new URL('../assets/vo360-logo.png', import.meta.url).href} alt="VO360" className="w-48 h-auto mx-auto mb-3" />
+          <p className="gradient-text text-sm font-semibold">Your Intelligent Execution Partner</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -63,7 +63,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-lg text-white font-semibold text-sm transition-all disabled:opacity-40 bg-brand-gradient hover:opacity-90 shadow-lg shadow-magenta/20"
+            className="w-full py-3 rounded-lg text-white font-semibold text-sm transition-all disabled:opacity-40 bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] hover:opacity-90 shadow-lg shadow-[#3b82f6]/20 cursor-pointer"
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>

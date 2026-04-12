@@ -19,11 +19,11 @@ export default function Sidebar() {
   const { logout } = useAuth();
 
   return (
-    <div className="w-56 bg-sidebar/80 backdrop-blur-xl flex flex-col min-h-screen shrink-0 border-r border-white/5">
+    <div className="w-56 bg-sidebar/80 backdrop-blur-xl flex flex-col min-h-screen shrink-0 border-r border-white/5" style={{ borderImage: 'linear-gradient(to bottom, rgba(45,212,191,0.15), rgba(59,130,246,0.1), transparent) 1' }}>
       {/* Brand */}
       <div className="px-4 py-5">
-        <img src={new URL('../assets/vo360-logo.png', import.meta.url).href} alt="VO360" className="h-10 w-auto" />
-        <p className="text-white/25 text-xs mt-1.5 font-medium pl-1">Client Onboarding Hub</p>
+        <img src={new URL('../assets/vo360-logo.png', import.meta.url).href} alt="VO360" className="w-40 h-auto" />
+        <p className="gradient-text text-xs mt-1.5 font-semibold pl-1">Client Onboarding Hub</p>
       </div>
 
       {/* Gradient divider */}
