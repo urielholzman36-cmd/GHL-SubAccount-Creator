@@ -315,7 +315,7 @@ export default function ClientProfile() {
           <button
             type="submit"
             disabled={saving}
-            className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="px-6 py-2.5 bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {saving ? 'Saving...' : isNew ? 'Create Client' : 'Save Changes'}
           </button>

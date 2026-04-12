@@ -244,7 +244,7 @@ export default function CampaignDashboard() {
                   </div>
                   <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-500"
+                      className="h-full bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] rounded-full transition-all duration-500"
                       style={{ width: `${Math.round((progress.current / progress.total) * 100)}%` }}
                     />
                   </div>
@@ -287,7 +287,7 @@ export default function CampaignDashboard() {
                   <button
                     onClick={startPipeline}
                     disabled={starting || !month}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                   >
                     {starting ? 'Starting...' : 'Start Pipeline'}
                   </button>

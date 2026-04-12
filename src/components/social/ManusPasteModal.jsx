@@ -87,7 +87,7 @@ export default function ManusPasteModal({ campaignId, pauseInfo, onContinue, onS
           <button
             onClick={handleSubmit}
             disabled={!text.trim() || submitting}
-            className="px-5 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {submitting ? 'Submitting...' : 'Submit & Continue'}
           </button>

@@ -63,9 +63,8 @@ export default function HamburgerNav() {
         style={{ zIndex: 45 }}
       >
         {/* Brand header */}
-        <div className="px-5 pt-20 pb-6">
-          <h2 className="text-lg font-extrabold gradient-text tracking-wide">VO360</h2>
-          <p className="text-white/25 text-xs mt-1 font-medium">Navigation</p>
+        <div className="px-4 pt-20 pb-6">
+          <img src={new URL('../assets/vo360-logo.png', import.meta.url).href} alt="VO360" className="h-9 w-auto" />
         </div>
 
         <div className="mx-5 h-px bg-brand-gradient-r opacity-20 mb-3" />
@@ -78,7 +77,7 @@ export default function HamburgerNav() {
               onClick={() => handleNav(path)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                 isActive(path)
-                  ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-white shadow-sm shadow-blue-500/20 border border-blue-400/20'
+                  ? 'bg-gradient-to-r from-[#2dd4bf]/15 via-[#3b82f6]/15 to-[#a855f7]/15 text-white shadow-sm shadow-[#3b82f6]/20 border border-[#3b82f6]/20'
                   : 'text-white/35 hover:text-white/70 hover:bg-white/4'
               }`}
             >

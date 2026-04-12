@@ -21,9 +21,9 @@ export default function Sidebar() {
   return (
     <div className="w-56 bg-sidebar/80 backdrop-blur-xl flex flex-col min-h-screen shrink-0 border-r border-white/5">
       {/* Brand */}
-      <div className="px-5 py-6">
-        <h1 className="text-xl font-extrabold gradient-text tracking-wide">VO360</h1>
-        <p className="text-white/25 text-xs mt-1 font-medium">Client Onboarding Hub</p>
+      <div className="px-4 py-5">
+        <img src={new URL('../assets/vo360-logo.png', import.meta.url).href} alt="VO360" className="h-10 w-auto" />
+        <p className="text-white/25 text-xs mt-1.5 font-medium pl-1">Client Onboarding Hub</p>
       </div>
 
       {/* Gradient divider */}

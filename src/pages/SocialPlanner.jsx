@@ -78,7 +78,7 @@ export default function SocialPlanner() {
           </button>
           <button
             onClick={() => navigate('/social/client/new')}
-            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+            className="px-4 py-2 bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
           >
             + New Client
           </button>
@@ -99,7 +99,7 @@ export default function SocialPlanner() {
           <p className="text-white/50 mb-4">No clients yet</p>
           <button
             onClick={() => navigate('/social/client/new')}
-            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+            className="px-4 py-2 bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
           >
             Create your first client
           </button>

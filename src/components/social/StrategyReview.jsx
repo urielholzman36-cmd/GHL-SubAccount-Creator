@@ -165,7 +165,7 @@ export default function StrategyReview({ campaignId, posts, onApprove }) {
         <button
           onClick={handleApprove}
           disabled={approving}
-          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {approving ? 'Approving...' : 'Approve & Generate Images'}
         </button>
