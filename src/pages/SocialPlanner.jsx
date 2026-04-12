@@ -5,14 +5,47 @@ export default function SocialPlanner() {
   const navigate = useNavigate();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showImport, setShowImport] = useState(false);
+  const [builds, setBuilds] = useState([]);
+  const [importing, setImporting] = useState(false);
 
-  useEffect(() => {
+  function loadClients() {
     fetch('/api/clients')
       .then((r) => r.json())
       .then((data) => setClients(Array.isArray(data) ? data : data.clients || []))
       .catch(() => setClients([]))
       .finally(() => setLoading(false));
-  }, []);
+  }
+
+  useEffect(() => { loadClients(); }, []);
+
+  function openImportModal() {
+    setShowImport(true);
+    fetch('/api/clients/builds-available')
+      .then((r) => r.json())
+      .then((data) => setBuilds(Array.isArray(data) ? data : []))
+      .catch(() => setBuilds([]));
+  }
+
+  async function importBuild(buildId) {
+    setImporting(true);
+    try {
+      const res = await fetch('/api/clients/import-from-build', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ build_id: buildId }),
+      });
+      const data = await res.json();
+      if (data.id) {
+        setShowImport(false);
+        navigate(`/social/client/${data.id}/campaigns`);
+      }
+    } catch (err) {
+      console.error('Import failed:', err);
+    } finally {
+      setImporting(false);
+    }
+  }
 
   const gradientColors = [
     'from-purple-500 to-pink-500',
@@ -36,12 +69,20 @@ export default function SocialPlanner() {
           <h1 className="text-2xl font-bold">Social Planner</h1>
           <p className="text-white/50 text-sm mt-1">Manage client campaigns and content</p>
         </div>
-        <button
-          onClick={() => navigate('/social/client/new')}
-          className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
-        >
-          + New Client
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={openImportModal}
+            className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors"
+          >
+            Import from Build
+          </button>
+          <button
+            onClick={() => navigate('/social/client/new')}
+            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            + New Client
+          </button>
+        </div>
       </div>
 
       {/* Loading */}
@@ -96,6 +137,47 @@ export default function SocialPlanner() {
             </button>
           ))}
         </div>
+      )}
+      {/* Import from Build Modal */}
+      {showImport && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-40" onClick={() => setShowImport(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-[#0d1f3c] border border-white/10 rounded-2xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-white">Import from Build</h2>
+                <button onClick={() => setShowImport(false)} className="text-white/40 hover:text-white/80 text-xl">&times;</button>
+              </div>
+              <p className="text-white/50 text-sm mb-4">Select a build to import as a Social Planner client. All business info, audience, and logo will be carried over.</p>
+              {builds.length === 0 ? (
+                <p className="text-white/40 text-sm py-8 text-center">No builds found</p>
+              ) : (
+                <div className="space-y-2">
+                  {builds.map((build) => (
+                    <button
+                      key={build.id}
+                      onClick={() => importBuild(build.id)}
+                      disabled={importing}
+                      className="w-full text-left p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all disabled:opacity-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white font-bold shrink-0">
+                          {(build.business_name || '?')[0].toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-white font-medium truncate">{build.business_name}</h3>
+                          <p className="text-white/40 text-xs truncate">
+                            {[build.industry_text || build.industry, build.city, build.state].filter(Boolean).join(' · ')}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
