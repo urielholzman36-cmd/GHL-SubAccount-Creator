@@ -6,3 +6,7 @@ dist/
 
 # Uploaded client logos (M2a)
 data/logos/
+
+# Campaign data (images, CSVs, etc.)
+data/campaigns/
+data/social/
