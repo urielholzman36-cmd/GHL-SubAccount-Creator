@@ -87,12 +87,19 @@ export default function FinalReview({ campaignId, posts, clientName, onExport })
                   {images.length > 0 ? (
                     <div className="flex gap-2 overflow-x-auto max-w-[320px]">
                       {images.map((url, i) => (
-                        <img
+                        <a
                           key={i}
-                          src={url}
-                          alt={`Post ${post.day_number} image ${i + 1}`}
-                          className="w-[150px] h-[150px] object-cover rounded-lg border border-white/10 flex-shrink-0"
-                        />
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="cursor-pointer flex-shrink-0 group/img"
+                        >
+                          <img
+                            src={url}
+                            alt={`Post ${post.day_number} image ${i + 1}`}
+                            className="w-[150px] h-[150px] object-cover rounded-lg border border-white/10 group-hover/img:border-[#3b82f6]/40 group-hover/img:shadow-lg group-hover/img:shadow-[#3b82f6]/10 transition-all"
+                          />
+                        </a>
                       ))}
                     </div>
                   ) : (
