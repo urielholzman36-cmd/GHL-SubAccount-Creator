@@ -31,7 +31,7 @@ export default function useCampaignSSE(campaignId) {
           setProgress({ step: data.step, current: data.current, total: data.total, message: data.message });
           break;
         case 'campaign-paused':
-          setStatus('paused');
+          setStatus(data.status || 'paused');
           setCurrentStep(data.step);
           setPauseInfo(data);
           break;
