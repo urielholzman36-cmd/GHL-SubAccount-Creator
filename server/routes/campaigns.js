@@ -121,6 +121,7 @@ export function createCampaignsRouter(db) {
     if (theme) socialQueries.updateCampaignField(db, id, 'theme', theme);
     if (start_date) socialQueries.updateCampaignField(db, id, 'start_date', start_date);
     if (post_count) socialQueries.updateCampaignField(db, id, 'post_count', post_count);
+    if (req.body.manus_research) socialQueries.updateCampaignField(db, id, 'manus_research', req.body.manus_research);
 
     // Run pipeline async
     const runner = new SocialRunner(db, (data) => broadcastToCampaign(id, data));

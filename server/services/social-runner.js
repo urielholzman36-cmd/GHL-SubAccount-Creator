@@ -163,13 +163,9 @@ export class SocialRunner {
     const client = getClient(this.db, campaign.client_id);
 
     const webResearch = await runWebResearch(client, campaign.month, campaign.theme);
+    // Manus research is now provided upfront with the campaign start request
     const merged = mergeResearch(webResearch, campaign.manus_research);
     updateCampaignField(this.db, campaignId, 'research_brief', merged);
-
-    // If client uses Manus and no manus_research yet, emit a pause event
-    if (client.uses_manus && !campaign.manus_research) {
-      this.emit({ type: 'manus-pause', campaignId });
-    }
   }
 
   // ── Step 3: Generate strategy pack ────────────────────────────

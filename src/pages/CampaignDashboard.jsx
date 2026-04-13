@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import useCampaignSSE from '../hooks/useCampaignSSE';
 import StrategyReview from '../components/social/StrategyReview';
 import FinalReview from '../components/social/FinalReview';
-import ManusPasteModal from '../components/social/ManusPasteModal';
+// ManusPasteModal removed — Manus research is now inline on the campaign form
 
 const STEPS = [
   { number: 1, name: 'Monthly Brief', phase: 'Setup' },
@@ -47,6 +47,8 @@ export default function CampaignDashboard() {
   const [theme, setTheme] = useState('');
   const [startDate, setStartDate] = useState('');
   const [postCount, setPostCount] = useState(30);
+  const [manusResearch, setManusResearch] = useState('');
+  const [showManus, setShowManus] = useState(false);
   const [starting, setStarting] = useState(false);
 
   function fetchCampaign() {
@@ -79,7 +81,7 @@ export default function CampaignDashboard() {
       await fetch(`/api/campaigns/${id}/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month, theme, start_date: startDate, post_count: postCount }),
+        body: JSON.stringify({ month, theme, start_date: startDate, post_count: postCount, manus_research: manusResearch || null }),
       });
       reconnect();
     } catch {
@@ -102,17 +104,6 @@ export default function CampaignDashboard() {
     }
   }
 
-  async function resumeAfterManus() {
-    try {
-      await fetch(`/api/campaigns/${id}/resume`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      reconnect();
-    } catch {
-      alert('Failed to resume');
-    }
-  }
 
   function getStepStatus(stepNum) {
     if (stepStatuses[stepNum]) return stepStatuses[stepNum];
@@ -132,22 +123,11 @@ export default function CampaignDashboard() {
 
   const effectiveStatus = sseStatus || campaign?.status || 'draft';
   const isDraft = effectiveStatus === 'draft';
-  const isManusP = effectiveStatus === 'manus_pause';
   const isStrategyReview = effectiveStatus === 'review_strategy';
   const isFinalReview = effectiveStatus === 'review_final';
 
   return (
     <div className="p-8 pl-16 text-white min-h-screen">
-      {/* Manus paste overlay */}
-      {isManusP && (
-        <ManusPasteModal
-          campaignId={id}
-          pauseInfo={pauseInfo}
-          onContinue={() => reconnect()}
-          onSkip={() => resumeAfterManus()}
-        />
-      )}
-
       {/* Back button + header */}
       <div className="flex items-center gap-3 mb-6">
         <button
@@ -314,6 +294,31 @@ export default function CampaignDashboard() {
                       ))}
                     </div>
                   </div>
+                  {/* Manus research — casual optional add-on */}
+                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowManus(!showManus)}
+                      className="flex items-center gap-2 text-xs text-white/40 hover:text-white/60 transition-colors cursor-pointer w-full"
+                    >
+                      <span className={`transition-transform ${showManus ? 'rotate-90' : ''}`}>&#9654;</span>
+                      <span>Have Manus research to add?</span>
+                      <span className="text-white/20 ml-auto">optional</span>
+                    </button>
+                    {showManus && (
+                      <div className="mt-3">
+                        <textarea
+                          value={manusResearch}
+                          onChange={(e) => setManusResearch(e.target.value)}
+                          rows={4}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-purple-500/50 resize-y"
+                          placeholder="Paste Manus AI trend research here — Instagram trends, hashtag data, competitor insights..."
+                        />
+                        <p className="text-xs text-white/20 mt-1">This gets merged with the AI research to produce better content.</p>
+                      </div>
+                    )}
+                  </div>
+
                   <button
                     onClick={startPipeline}
                     disabled={starting || !month}
