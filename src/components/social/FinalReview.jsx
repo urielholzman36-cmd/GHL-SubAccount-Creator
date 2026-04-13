@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const PILLAR_COLORS = {
   PAIN: 'bg-red-500/20 text-red-300 border-red-500/30',
@@ -21,6 +21,10 @@ function parseImages(imageUrls) {
 export default function FinalReview({ campaignId, posts, clientName, onExport }) {
   const [localPosts, setLocalPosts] = useState(posts || []);
   const [saving, setSaving] = useState({});
+
+  useEffect(() => {
+    if (posts && posts.length > 0) setLocalPosts(posts);
+  }, [posts]);
 
   const saveField = useCallback(
     async (postId, field, value) => {
