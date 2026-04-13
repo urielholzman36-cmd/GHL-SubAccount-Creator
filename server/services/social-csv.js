@@ -33,7 +33,7 @@ export function buildGhlCsv(posts, postingTime, platforms) {
   const rows = [];
 
   // Single header row — GHL Basic Format
-  rows.push(['postAtSpecificTime', 'content', 'link (OGmetaUrl)', 'imageUrls', 'gifUrl', 'videoUrls'].map(escapeCsv).join(','));
+  rows.push(['postAtSpecificTime (YYYY-MM-DD HH:mm:ss)', 'content', 'link (OGmetaUrl)', 'imageUrls', 'gifUrl', 'videoUrls'].map(escapeCsv).join(','));
 
   for (const post of posts) {
     // Build content: caption + hashtags
