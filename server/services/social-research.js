@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { withRetry } from './retry.js';
 import { readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -62,11 +63,14 @@ export async function runWebResearch(client, month, theme) {
   const anthropic = new Anthropic();
   const prompt = buildResearchPrompt(client, month, theme);
 
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 4096,
-    messages: [{ role: 'user', content: prompt }],
-  });
+  const response = await withRetry(
+    () => anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+    { label: 'Research (Claude)' }
+  );
 
   const textBlocks = response.content
     .filter((block) => block.type === 'text')

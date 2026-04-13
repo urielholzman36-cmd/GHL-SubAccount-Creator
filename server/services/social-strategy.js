@@ -4,6 +4,7 @@
  */
 
 import { readFileSync } from 'fs';
+import { withRetry } from './retry.js';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -161,30 +162,34 @@ export async function generateStrategyPack(client, month, theme, researchBrief, 
 
   const prompt = buildStrategyPrompt(client, month, theme, researchBrief, postCount);
 
-  const res = await fetchFn('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 16384,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
+  const data = await withRetry(async () => {
+    const res = await fetchFn('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 16384,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
 
-  if (!res.ok) {
-    let detail = '';
-    try {
-      const errBody = await res.json();
-      detail = errBody?.error?.message || JSON.stringify(errBody);
-    } catch (_) {}
-    throw new Error(`Claude API error: ${res.status} ${detail}`);
-  }
+    if (!res.ok) {
+      let detail = '';
+      try {
+        const errBody = await res.json();
+        detail = errBody?.error?.message || JSON.stringify(errBody);
+      } catch (_) {}
+      const err = new Error(`Claude API error: ${res.status} ${detail}`);
+      err.status = res.status;
+      throw err;
+    }
 
-  const data = await res.json();
+    return res.json();
+  }, { label: 'Strategy Pack (Claude)' });
   const textBlock = (data.content || []).find((c) => c.type === 'text');
   if (!textBlock || !textBlock.text) {
     throw new Error('Claude API returned empty content');
