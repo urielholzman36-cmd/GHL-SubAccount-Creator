@@ -37,8 +37,8 @@ if (userCount === 0) {
   const hash1 = await bcrypt.hash('Ur25072002', 12);
   db.prepare('INSERT INTO users (username, password_hash, display_name) VALUES (?, ?, ?)').run('uriel_holzman', hash1, 'Uriel');
 
-  const hash2 = await bcrypt.hash('Vo360partner!', 12);
-  db.prepare('INSERT INTO users (username, password_hash, display_name) VALUES (?, ?, ?)').run('shaked', hash2, 'Shaked');
+  const hash2 = await bcrypt.hash('Hsp2026', 12);
+  db.prepare('INSERT INTO users (username, password_hash, display_name) VALUES (?, ?, ?)').run('modi', hash2, 'Modi');
 
   console.log('Default users seeded (first boot).');
 }
