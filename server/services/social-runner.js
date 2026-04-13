@@ -233,8 +233,15 @@ export class SocialRunner {
     const campaignDir = path.join(DATA_DIR, 'social', `campaign-${campaignId}`);
     fs.mkdirSync(campaignDir, { recursive: true });
 
+    // Append no-text instruction to every visual prompt before sending to Krea
+    const NO_TEXT = ' Do not include any text, words, letters, logos, watermarks, or typography in the image. Purely visual, no overlays.';
+    const cleanedPosts = posts.map(p => ({
+      ...p,
+      visual_prompt: (p.visual_prompt || '') + NO_TEXT,
+    }));
+
     const csvPath = path.join(campaignDir, 'prompts.csv');
-    writePromptsCsv(csvPath, posts);
+    writePromptsCsv(csvPath, cleanedPosts);
     updateCampaignField(this.db, campaignId, 'prompts_csv_path', csvPath);
 
     if (process.env.DRY_RUN === 'true') {

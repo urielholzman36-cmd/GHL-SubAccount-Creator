@@ -73,6 +73,7 @@ ${pillars}
 - Mix of approximately ${singleCount} single-image posts, ${carouselCount} carousel posts, and ${baCount} before/after posts.
 - Each post object must include: day, pillar, post_type, concept, caption, hashtags, cta, visual_prompt, slide_count.
 - Make all content specific to the client's location and industry. Reference local landmarks, events, and market conditions.
+- CRITICAL for visual_prompt: NEVER include text, logos, watermarks, brand names, words, letters, or any typography in the image. The image must be purely visual — no overlays, no fake branding, no text of any kind. A separate watermark will be applied later. Describe only the scene, objects, lighting, composition, and mood.
 
 Return ONLY a valid JSON array of ${postCount} post objects. No additional text.`;
 
