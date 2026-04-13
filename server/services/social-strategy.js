@@ -28,17 +28,23 @@ function jsonToList(raw) {
 /**
  * Build the Claude prompt for a 30-day strategy pack.
  */
-export function buildStrategyPrompt(client, month, theme, researchBrief) {
+export function buildStrategyPrompt(client, month, theme, researchBrief, postCount = 30) {
   const services = jsonToComma(client.services);
   const platforms = jsonToComma(client.platforms);
   const hashtags = jsonToSpace(client.hashtag_bank);
   const pillars = jsonToList(client.content_pillars);
 
-  let prompt = `You are a social media strategist. Create a 30-day content strategy pack for the following client.
+  const postsPerPillar = Math.max(1, Math.floor(postCount / 5));
+  const singleCount = Math.max(1, Math.round(postCount * 0.67));
+  const carouselCount = Math.max(0, Math.round(postCount * 0.23));
+  const baCount = Math.max(0, postCount - singleCount - carouselCount);
+
+  let prompt = `You are a social media strategist. Create a ${postCount}-post content strategy pack for the following client.
 
 ## Client Profile
 - **Name:** ${client.name}
 - **Industry:** ${client.industry}
+- **Location:** ${client.location || 'USA'}
 - **Brand Tone:** ${client.brand_tone}
 - **Brand Description:** ${client.brand_description}
 - **Target Audience:** ${client.target_audience}
@@ -61,12 +67,13 @@ ${pillars}
 
   prompt += `
 ## Rules
-- Generate exactly 30 posts as a JSON array.
-- Distribute 6 posts per pillar (balanced across all 5 pillars).
-- Mix of approximately 20 single-image posts, 7 carousel posts, and 3 before/after posts.
+- Generate exactly ${postCount} posts as a JSON array.
+- Distribute posts evenly across all 5 pillars (~${postsPerPillar} per pillar).
+- Mix of approximately ${singleCount} single-image posts, ${carouselCount} carousel posts, and ${baCount} before/after posts.
 - Each post object must include: day, pillar, post_type, concept, caption, hashtags, cta, visual_prompt, slide_count.
+- Make all content specific to the client's location and industry. Reference local landmarks, events, and market conditions.
 
-Return ONLY a valid JSON array of 30 post objects. No additional text.`;
+Return ONLY a valid JSON array of ${postCount} post objects. No additional text.`;
 
   return prompt;
 }
@@ -99,9 +106,9 @@ export function parseStrategyResponse(responseText) {
 /**
  * Validate a parsed strategy pack.
  */
-export function validateStrategyPack(pack) {
-  if (!Array.isArray(pack) || pack.length < 30) {
-    throw new Error(`Strategy pack must contain at least 30 posts, got ${Array.isArray(pack) ? pack.length : 0}`);
+export function validateStrategyPack(pack, expectedCount = 30) {
+  if (!Array.isArray(pack) || pack.length < expectedCount) {
+    throw new Error(`Strategy pack must contain at least ${expectedCount} posts, got ${Array.isArray(pack) ? pack.length : 0}`);
   }
 
   const requiredFields = ['day', 'pillar', 'concept', 'caption'];
@@ -120,7 +127,7 @@ export function validateStrategyPack(pack) {
  * Generate a full 30-day strategy pack via Claude (or dry-run fixture).
  */
 export async function generateStrategyPack(client, month, theme, researchBrief, opts = {}) {
-  const { apiKey, fetchImpl } = opts;
+  const { apiKey, fetchImpl, postCount = 30 } = opts;
 
   // Dry-run mode: return fixture data
   if (process.env.DRY_RUN === 'true') {
@@ -134,7 +141,7 @@ export async function generateStrategyPack(client, month, theme, researchBrief, 
         try { return JSON.parse(client.content_pillars); } catch { return ['General']; }
       })();
 
-      return Array.from({ length: 30 }, (_, i) => ({
+      return Array.from({ length: postCount }, (_, i) => ({
         day: i + 1,
         pillar: pillars[i % pillars.length],
         post_type: i < 20 ? 'single' : i < 27 ? 'carousel' : 'before_after',
@@ -152,7 +159,7 @@ export async function generateStrategyPack(client, month, theme, researchBrief, 
   const fetchFn = fetchImpl || fetch;
   if (!apiKey) throw new Error('generateStrategyPack: apiKey is required');
 
-  const prompt = buildStrategyPrompt(client, month, theme, researchBrief);
+  const prompt = buildStrategyPrompt(client, month, theme, researchBrief, postCount);
 
   const res = await fetchFn('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -184,6 +191,6 @@ export async function generateStrategyPack(client, month, theme, researchBrief, 
   }
 
   const pack = parseStrategyResponse(textBlock.text);
-  validateStrategyPack(pack);
+  validateStrategyPack(pack, postCount);
   return pack;
 }

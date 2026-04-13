@@ -46,6 +46,7 @@ export default function CampaignDashboard() {
   const [month, setMonth] = useState('');
   const [theme, setTheme] = useState('');
   const [startDate, setStartDate] = useState('');
+  const [postCount, setPostCount] = useState(30);
   const [starting, setStarting] = useState(false);
 
   function fetchCampaign() {
@@ -78,7 +79,7 @@ export default function CampaignDashboard() {
       await fetch(`/api/campaigns/${id}/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month, theme, start_date: startDate }),
+        body: JSON.stringify({ month, theme, start_date: startDate, post_count: postCount }),
       });
       reconnect();
     } catch {
@@ -294,12 +295,31 @@ export default function CampaignDashboard() {
                       placeholder="e.g. Summer fitness motivation, new client offers..."
                     />
                   </div>
+                  <div>
+                    <label className="text-xs text-white/40 block mb-1">Posts</label>
+                    <div className="flex gap-2">
+                      {[1, 10, 30].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setPostCount(n)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                            postCount === n
+                              ? 'bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] text-white'
+                              : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10'
+                          }`}
+                        >
+                          {n === 1 ? '1 (test)' : n === 10 ? '10' : '30 (full)'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <button
                     onClick={startPipeline}
                     disabled={starting || !month}
-                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                    className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
                   >
-                    {starting ? 'Starting...' : 'Start Pipeline'}
+                    {starting ? 'Starting...' : `Start Pipeline (${postCount} post${postCount > 1 ? 's' : ''})`}
                   </button>
                 </div>
               )}

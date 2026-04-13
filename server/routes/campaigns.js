@@ -114,12 +114,13 @@ export function createCampaignsRouter(db) {
     const campaign = socialQueries.getCampaign(db, id);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
 
-    const { month, theme, start_date } = req.body || {};
+    const { month, theme, start_date, post_count } = req.body || {};
 
     // Update brief fields if provided
     if (month) socialQueries.updateCampaignField(db, id, 'month', month);
     if (theme) socialQueries.updateCampaignField(db, id, 'theme', theme);
     if (start_date) socialQueries.updateCampaignField(db, id, 'start_date', start_date);
+    if (post_count) socialQueries.updateCampaignField(db, id, 'post_count', post_count);
 
     // Run pipeline async
     const runner = new SocialRunner(db, (data) => broadcastToCampaign(id, data));

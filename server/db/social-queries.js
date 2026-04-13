@@ -15,7 +15,7 @@ const CLIENT_FIELDS = new Set([
 const CAMPAIGN_FIELDS = new Set([
   'month', 'theme', 'start_date', 'status', 'research_brief',
   'manus_research', 'strategy_pack', 'prompts_csv_path',
-  'images_folder', 'csv_path', 'current_step',
+  'images_folder', 'csv_path', 'current_step', 'post_count',
 ]);
 
 // ── Post allowlist ────────────────────────────────────────────────

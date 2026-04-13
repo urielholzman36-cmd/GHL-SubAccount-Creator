@@ -178,8 +178,10 @@ export class SocialRunner {
     const campaign = getCampaign(this.db, campaignId);
     const client = getClient(this.db, campaign.client_id);
 
+    const postCount = campaign.post_count || 30;
     const pack = await generateStrategyPack(
       client, campaign.month, campaign.theme, campaign.research_brief,
+      { apiKey: process.env.ANTHROPIC_API_KEY, postCount },
     );
 
     updateCampaignField(this.db, campaignId, 'strategy_pack', JSON.stringify(pack));

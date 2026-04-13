@@ -41,6 +41,7 @@ export function initializeSocialTables(db) {
       images_folder TEXT,
       csv_path TEXT,
       current_step INTEGER DEFAULT 1,
+      post_count INTEGER DEFAULT 30,
       created_at DATETIME DEFAULT (datetime('now'))
     );
 
