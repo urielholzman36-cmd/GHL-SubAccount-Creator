@@ -53,7 +53,7 @@ export function writePromptsCsv(csvPath, posts) {
 
   for (const post of posts) {
     const id = post.day_number;
-    const isBeforeAfter = post.post_format === 'before_after';
+    const isBeforeAfter = post.post_type === 'before_after';
     const isSingle = (post.slide_count || 1) === 1;
 
     if (isSingle) {

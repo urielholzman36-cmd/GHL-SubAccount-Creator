@@ -14,6 +14,72 @@ const TYPE_STYLES = {
   before_after: 'bg-orange-500/20 text-orange-300',
 };
 
+/**
+ * Parse "Slide N: ..." markers from a visual_prompt string.
+ * Returns an array of per-slide prompt strings.
+ */
+function parseSlidePrompts(text, slideCount) {
+  const slides = [];
+  for (let i = 1; i <= slideCount; i++) {
+    const marker = new RegExp(`Slide\\s+${i}:\\s*`, 'i');
+    const nextMarker = i < slideCount ? new RegExp(`Slide\\s+${i + 1}:`, 'i') : null;
+    const match = text.match(marker);
+    if (!match) return null;
+    const start = match.index + match[0].length;
+    let end = text.length;
+    if (nextMarker) {
+      const nextMatch = text.match(nextMarker);
+      if (nextMatch) end = nextMatch.index;
+    }
+    slides.push(text.slice(start, end).trim());
+  }
+  return slides;
+}
+
+function mergeSlidePrompts(slides) {
+  return slides.map((s, i) => `Slide ${i + 1}: ${s}`).join(' ');
+}
+
+function SlidePrompts({ post, onUpdate, onSave }) {
+  const slideCount = post.slide_count || 1;
+  const parsed = parseSlidePrompts(post.visual_prompt || '', slideCount);
+  const slides = parsed || [post.visual_prompt || ''];
+
+  const handleChange = (idx, value) => {
+    const updated = [...slides];
+    updated[idx] = value;
+    onUpdate(mergeSlidePrompts(updated));
+  };
+
+  const handleBlur = (idx, value) => {
+    const updated = [...slides];
+    updated[idx] = value;
+    onSave(mergeSlidePrompts(updated));
+  };
+
+  const slideLabel = post.post_type === 'before_after'
+    ? (i) => i === 0 ? 'Before' : 'After'
+    : (i) => `Slide ${i + 1}`;
+
+  return (
+    <div className="space-y-2">
+      {slides.map((slide, i) => (
+        <div key={i}>
+          <span className="text-[10px] text-white/30 uppercase tracking-wide">{slideLabel(i)}</span>
+          <textarea
+            value={slide}
+            onChange={(e) => handleChange(i, e.target.value)}
+            onBlur={(e) => handleBlur(i, e.target.value)}
+            rows={2}
+            className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-xs text-white/70 placeholder-white/30 focus:outline-none focus:border-purple-500/50 resize-y"
+            placeholder={`Describe ${slideLabel(i).toLowerCase()} image...`}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function StrategyReview({ campaignId, posts, onApprove }) {
   const [localPosts, setLocalPosts] = useState(posts || []);
   const [expanded, setExpanded] = useState({});
@@ -147,17 +213,27 @@ export default function StrategyReview({ campaignId, posts, onApprove }) {
               />
             </div>
 
-            {/* Visual prompt */}
+            {/* Visual prompt — split per slide for carousel/before_after */}
             <div>
-              <label className="text-xs text-white/40 block mb-1">Visual Prompt</label>
-              <textarea
-                value={post.visual_prompt || ''}
-                onChange={(e) => updatePost(post.id, 'visual_prompt', e.target.value)}
-                onBlur={(e) => saveField(post.id, 'visual_prompt', e.target.value)}
-                rows={2}
-                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-xs text-white/70 placeholder-white/30 focus:outline-none focus:border-purple-500/50 resize-y"
-                placeholder="Describe the image to generate..."
-              />
+              <label className="text-xs text-white/40 block mb-1">
+                Visual Prompt{(post.slide_count || 1) > 1 ? ` (${post.slide_count} slides)` : ''}
+              </label>
+              {(post.slide_count || 1) > 1 ? (
+                <SlidePrompts
+                  post={post}
+                  onUpdate={(merged) => updatePost(post.id, 'visual_prompt', merged)}
+                  onSave={(merged) => saveField(post.id, 'visual_prompt', merged)}
+                />
+              ) : (
+                <textarea
+                  value={post.visual_prompt || ''}
+                  onChange={(e) => updatePost(post.id, 'visual_prompt', e.target.value)}
+                  onBlur={(e) => saveField(post.id, 'visual_prompt', e.target.value)}
+                  rows={2}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-xs text-white/70 placeholder-white/30 focus:outline-none focus:border-purple-500/50 resize-y"
+                  placeholder="Describe the image to generate..."
+                />
+              )}
             </div>
           </div>
         ))}

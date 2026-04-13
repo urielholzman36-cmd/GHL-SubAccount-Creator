@@ -72,6 +72,9 @@ ${pillars}
 - Distribute posts evenly across all 5 pillars (~${postsPerPillar} per pillar).
 - Mix of approximately ${singleCount} single-image posts, ${carouselCount} carousel posts, and ${baCount} before/after posts.
 - Each post object must include: day, pillar, post_type, concept, caption, hashtags, cta, visual_prompt, slide_count.
+- For single-image posts: slide_count = 1, visual_prompt = one scene description.
+- For carousel posts: slide_count = 3–5, visual_prompt MUST contain separate prompts labeled "Slide 1: ...", "Slide 2: ...", etc. Each slide should show a different angle, step, or aspect of the concept — NOT the same scene repeated.
+- For before_after posts: slide_count = 2, visual_prompt MUST contain "Slide 1: ..." (the before/problem state) and "Slide 2: ..." (the after/fixed state). IMPORTANT: describe the SAME location, angle, and composition for both slides — only the condition changes. The "after" image will be generated using the "before" image as a visual reference, so scene consistency is critical.
 - Make all content specific to the client's location and industry. Reference local landmarks, events, and market conditions.
 - CRITICAL for visual_prompt: NEVER include text, logos, watermarks, brand names, words, letters, or any typography in the image. The image must be purely visual — no overlays, no fake branding, no text of any kind. A separate watermark will be applied later. Describe only the scene, objects, lighting, composition, and mood.
 
