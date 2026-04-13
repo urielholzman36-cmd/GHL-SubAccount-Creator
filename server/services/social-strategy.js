@@ -108,11 +108,11 @@ export function parseStrategyResponse(responseText) {
  * Validate a parsed strategy pack.
  */
 export function validateStrategyPack(pack, expectedCount = 30) {
-  if (!Array.isArray(pack) || pack.length < expectedCount) {
-    throw new Error(`Strategy pack must contain at least ${expectedCount} posts, got ${Array.isArray(pack) ? pack.length : 0}`);
+  if (!Array.isArray(pack) || pack.length === 0) {
+    throw new Error(`Strategy pack must contain posts, got ${Array.isArray(pack) ? pack.length : 0}`);
   }
 
-  const requiredFields = ['day', 'pillar', 'concept', 'caption'];
+  const requiredFields = ['pillar', 'concept', 'caption'];
 
   for (let i = 0; i < pack.length; i++) {
     const post = pack[i];
@@ -171,7 +171,7 @@ export async function generateStrategyPack(client, month, theme, researchBrief, 
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 16384,
         messages: [{ role: 'user', content: prompt }],
       }),

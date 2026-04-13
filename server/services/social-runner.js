@@ -187,19 +187,28 @@ export class SocialRunner {
     updateCampaignField(this.db, campaignId, 'strategy_pack', JSON.stringify(pack));
 
     // Create campaign_posts rows from the strategy pack
-    const posts = pack.map((post) => {
+    const posts = pack.map((post, idx) => {
+      // Normalize day to a number (Haiku sometimes returns date strings)
+      const dayNum = typeof post.day === 'number' ? post.day : idx + 1;
+
       // Calculate post_date from start_date + day offset
       const startDate = new Date(campaign.start_date);
       const postDate = new Date(startDate);
-      postDate.setDate(startDate.getDate() + (post.day - 1));
+      postDate.setDate(startDate.getDate() + (dayNum - 1));
       const postDateStr = postDate.toISOString().split('T')[0];
+
+      // Normalize post_type (Haiku returns "single_image" instead of "single")
+      let postType = (post.post_type || 'single').toLowerCase();
+      if (postType.includes('single') || postType === 'image') postType = 'single';
+      if (postType.includes('carousel')) postType = 'carousel';
+      if (postType.includes('before') || postType.includes('after')) postType = 'before_after';
 
       return {
         campaign_id: campaignId,
-        day_number: post.day,
+        day_number: dayNum,
         post_date: postDateStr,
         pillar: post.pillar,
-        post_type: post.post_type || 'single',
+        post_type: postType,
         concept: post.concept,
         caption: post.caption,
         hashtags: post.hashtags,
