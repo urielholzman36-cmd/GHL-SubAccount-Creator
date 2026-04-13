@@ -144,8 +144,13 @@ export function runKreaGeneration(clientName, csvPath, outputDir, { test = false
 
   proc.on('close', (code) => {
     if (code === 0) {
-      // The script outputs to <outputDir>/<clientName>_content/
-      const contentDir = path.join(outputDir, `${clientName}_content`);
+      // Find the actual content folder — Krea script sanitizes names differently
+      // Look for any folder ending in _Content or _content
+      const entries = fs.readdirSync(outputDir, { withFileTypes: true });
+      const contentFolder = entries.find(e => e.isDirectory() && /_[Cc]ontent$/.test(e.name));
+      const contentDir = contentFolder
+        ? path.join(outputDir, contentFolder.name)
+        : path.join(outputDir, `${clientName}_Content`);
       if (onComplete) onComplete(contentDir);
     } else {
       if (onError) onError(new Error(`Krea script exited with code ${code}: ${stderrBuf}`));
