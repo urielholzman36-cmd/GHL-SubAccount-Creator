@@ -203,18 +203,23 @@ export class SocialRunner {
       if (postType.includes('carousel')) postType = 'carousel';
       if (postType.includes('before') || postType.includes('after')) postType = 'before_after';
 
+      // Normalize hashtags — Haiku sometimes returns arrays instead of strings
+      const hashtags = Array.isArray(post.hashtags)
+        ? post.hashtags.join(' ')
+        : (post.hashtags || '');
+
       return {
         campaign_id: campaignId,
         day_number: dayNum,
         post_date: postDateStr,
         pillar: post.pillar,
         post_type: postType,
-        concept: post.concept,
-        caption: post.caption,
-        hashtags: post.hashtags,
-        cta: post.cta,
-        visual_prompt: post.visual_prompt,
-        slide_count: post.slide_count || 1,
+        concept: typeof post.concept === 'string' ? post.concept : String(post.concept || ''),
+        caption: typeof post.caption === 'string' ? post.caption : String(post.caption || ''),
+        hashtags,
+        cta: typeof post.cta === 'string' ? post.cta : String(post.cta || ''),
+        visual_prompt: typeof post.visual_prompt === 'string' ? post.visual_prompt : String(post.visual_prompt || ''),
+        slide_count: Number(post.slide_count) || 1,
         category: post.category || 'Product Showcase',
       };
     });
