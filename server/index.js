@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { initCloudinary } from './services/social-cloudinary.js';
+initCloudinary(); // Configure Cloudinary once at boot
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
