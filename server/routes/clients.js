@@ -113,6 +113,20 @@ export function createClientsRouter(db) {
     });
   });
 
+  // PUT /:id/profile — update client profile (JSON body, no file upload)
+  router.put('/:id/profile', async (req, res) => {
+    const { id } = req.params;
+    const existing = await socialQueries.getClient(db, id);
+    if (!existing) return res.status(404).json({ error: 'Client not found' });
+
+    try {
+      await socialQueries.updateClient(db, id, req.body);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to update client', details: err.message });
+    }
+  });
+
   // PUT /:id — update client (multipart with optional logo)
   router.put('/:id', async (req, res) => {
     const { id } = req.params;
