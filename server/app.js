@@ -29,7 +29,7 @@ function getRealDb() {
   if (!_realDb) {
     const url = process.env.TURSO_CONNECTION_URL;
     const token = process.env.TURSO_AUTH_TOKEN;
-    console.log(`[DB] Creating libsql client — URL defined: ${!!url}, token defined: ${!!token}`);
+    console.log(`[DB] Creating libsql client — URL: "${url}", token defined: ${!!token}, URL length: ${url?.length}`);
     if (!url) {
       throw new Error('TURSO_CONNECTION_URL is not set');
     }
