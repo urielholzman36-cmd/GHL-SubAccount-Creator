@@ -98,6 +98,33 @@ export async function initializeDb(db) {
     }
   }
 
+  // Unified Command Center client columns
+  const ccCols = [
+    ['contact_name', 'TEXT'],
+    ['email', 'TEXT'],
+    ['phone', 'TEXT'],
+    ['address', 'TEXT'],
+    ['city', 'TEXT'],
+    ['state', 'TEXT'],
+    ['zip', 'TEXT'],
+    ['country', "TEXT DEFAULT 'US'"],
+    ['location_id', 'TEXT'],
+    ['brand_colors_json', 'TEXT'],
+    ['design_style', 'TEXT'],
+    ['timezone', "TEXT DEFAULT 'America/New_York'"],
+    ['start_date', 'TEXT'],
+    ['active', 'INTEGER DEFAULT 1'],
+    ['onboarding_status', "TEXT DEFAULT 'pending'"],
+    ['updated_at', "DATETIME DEFAULT (datetime('now'))"],
+  ];
+  const ccColsResult = await db.execute("PRAGMA table_info(clients)");
+  const ccExisting = ccColsResult.rows.map(c => c.name);
+  for (const [name, type] of ccCols) {
+    if (!ccExisting.includes(name)) {
+      await db.execute(`ALTER TABLE clients ADD COLUMN ${name} ${type}`);
+    }
+  }
+
   // Users table for multi-user auth
   await db.executeMultiple(`
     CREATE TABLE IF NOT EXISTS users (
