@@ -27,10 +27,13 @@ let _initDone = false;
 
 function getRealDb() {
   if (!_realDb) {
-    _realDb = createClient({
-      url: process.env.TURSO_CONNECTION_URL,
-      authToken: process.env.TURSO_AUTH_TOKEN,
-    });
+    const url = process.env.TURSO_CONNECTION_URL;
+    const token = process.env.TURSO_AUTH_TOKEN;
+    console.log(`[DB] Creating libsql client — URL defined: ${!!url}, token defined: ${!!token}`);
+    if (!url) {
+      throw new Error('TURSO_CONNECTION_URL is not set');
+    }
+    _realDb = createClient({ url, authToken: token });
   }
   return _realDb;
 }
@@ -79,8 +82,9 @@ app.use(async (req, res, next) => {
     await ensureInit();
     next();
   } catch (err) {
-    console.error('DB init failed:', err);
-    res.status(500).json({ error: 'Database initialization failed' });
+    _initDone = false; // allow retry on next request
+    console.error('DB init failed:', err.message, err.stack);
+    res.status(500).json({ error: 'Database initialization failed', details: err.message });
   }
 });
 
