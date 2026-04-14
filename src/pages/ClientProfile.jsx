@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import CollapsibleSection from '../components/CollapsibleSection';
 
 const DEFAULT_PILLARS = ['PAIN', 'SOLUTION', 'AUTHORITY', 'PROOF', 'CTA'];
 const PLATFORM_OPTIONS = ['facebook', 'instagram', 'linkedin', 'tiktok'];
@@ -132,7 +133,6 @@ export default function ClientProfile() {
 
   if (loading) return <div className="p-8 pl-16 text-white/50">Loading client...</div>;
 
-  const cardClass = 'bg-white/5 border border-white/10 backdrop-blur-sm rounded-xl p-6 space-y-4';
   const labelClass = 'block text-sm text-white/60 mb-1';
   const inputClass =
     'w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/30 focus:outline-none focus:border-purple-500/50 transition-colors';
@@ -152,8 +152,7 @@ export default function ClientProfile() {
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* Business Info */}
-        <div className={cardClass}>
-          <h2 className="text-lg font-semibold text-white/80">Business Info</h2>
+        <CollapsibleSection title="Business Info" defaultOpen={true}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Name *</label>
@@ -172,11 +171,10 @@ export default function ClientProfile() {
               <input className={inputClass} value={form.website} onChange={(e) => set('website', e.target.value)} placeholder="https://..." />
             </div>
           </div>
-        </div>
+        </CollapsibleSection>
 
         {/* Brand Identity */}
-        <div className={cardClass}>
-          <h2 className="text-lg font-semibold text-white/80">Brand Identity</h2>
+        <CollapsibleSection title="Brand Identity">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Brand Tone</label>
@@ -187,62 +185,62 @@ export default function ClientProfile() {
               <input className={inputClass} value={form.target_audience} onChange={(e) => set('target_audience', e.target.value)} placeholder="e.g. First-time homebuyers" />
             </div>
           </div>
-          <div>
+          <div className="mt-4">
             <label className={labelClass}>Brand Description</label>
             <textarea className={inputClass + ' h-24 resize-none'} value={form.brand_description} onChange={(e) => set('brand_description', e.target.value)} placeholder="Describe the brand..." />
           </div>
-          <div>
+          <div className="mt-4">
             <label className={labelClass}>Services (one per line)</label>
             <textarea className={inputClass + ' h-24 resize-none'} value={form.services} onChange={(e) => set('services', e.target.value)} placeholder="Service 1&#10;Service 2" />
           </div>
-        </div>
+        </CollapsibleSection>
 
         {/* Content Strategy */}
-        <div className={cardClass}>
-          <h2 className="text-lg font-semibold text-white/80">Content Strategy</h2>
-          <div>
-            <label className={labelClass}>Content Pillars</label>
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
-              {form.content_pillars.map((pillar, i) => (
-                <input
-                  key={i}
-                  className={inputClass}
-                  value={pillar}
-                  onChange={(e) => setPillar(i, e.target.value)}
-                  placeholder={`Pillar ${i + 1}`}
-                />
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className={labelClass}>Hashtag Bank (space-separated)</label>
-            <textarea className={inputClass + ' h-20 resize-none'} value={form.hashtag_bank} onChange={(e) => set('hashtag_bank', e.target.value)} placeholder="#hashtag1 #hashtag2" />
-          </div>
-          <div>
-            <label className={labelClass}>CTA Style</label>
-            <input className={inputClass} value={form.cta_style} onChange={(e) => set('cta_style', e.target.value)} placeholder="e.g. DM us to learn more" />
-          </div>
-          <div>
-            <label className={labelClass}>Platforms</label>
-            <div className="flex flex-wrap gap-3 mt-1">
-              {PLATFORM_OPTIONS.map((p) => (
-                <label key={p} className="flex items-center gap-2 text-sm text-white/70 cursor-pointer">
+        <CollapsibleSection title="Content Strategy">
+          <div className="space-y-4">
+            <div>
+              <label className={labelClass}>Content Pillars</label>
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                {form.content_pillars.map((pillar, i) => (
                   <input
-                    type="checkbox"
-                    checked={form.platforms.includes(p)}
-                    onChange={() => togglePlatform(p)}
-                    className="rounded bg-white/10 border-white/20 text-purple-500 focus:ring-purple-500/30"
+                    key={i}
+                    className={inputClass}
+                    value={pillar}
+                    onChange={(e) => setPillar(i, e.target.value)}
+                    placeholder={`Pillar ${i + 1}`}
                   />
-                  {p.charAt(0).toUpperCase() + p.slice(1)}
-                </label>
-              ))}
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className={labelClass}>Hashtag Bank (space-separated)</label>
+              <textarea className={inputClass + ' h-20 resize-none'} value={form.hashtag_bank} onChange={(e) => set('hashtag_bank', e.target.value)} placeholder="#hashtag1 #hashtag2" />
+            </div>
+            <div>
+              <label className={labelClass}>CTA Style</label>
+              <input className={inputClass} value={form.cta_style} onChange={(e) => set('cta_style', e.target.value)} placeholder="e.g. DM us to learn more" />
+            </div>
+            <div>
+              <label className={labelClass}>Platforms</label>
+              <div className="flex flex-wrap gap-3 mt-1">
+                {PLATFORM_OPTIONS.map((p) => (
+                  <label key={p} className="flex items-center gap-2 text-sm text-white/70 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.platforms.includes(p)}
+                      onChange={() => togglePlatform(p)}
+                      className="rounded bg-white/10 border-white/20 text-purple-500 focus:ring-purple-500/30"
+                    />
+                    {p.charAt(0).toUpperCase() + p.slice(1)}
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        </CollapsibleSection>
 
         {/* Image Settings */}
-        <div className={cardClass}>
-          <h2 className="text-lg font-semibold text-white/80">Image Settings</h2>
+        <CollapsibleSection title="Image Settings">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Logo</label>
@@ -283,11 +281,10 @@ export default function ClientProfile() {
               />
             </div>
           </div>
-        </div>
+        </CollapsibleSection>
 
         {/* Advanced */}
-        <div className={cardClass}>
-          <h2 className="text-lg font-semibold text-white/80">Advanced</h2>
+        <CollapsibleSection title="Advanced">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="flex items-center gap-3 text-sm text-white/70 cursor-pointer">
               <input
@@ -308,7 +305,7 @@ export default function ClientProfile() {
               />
             </div>
           </div>
-        </div>
+        </CollapsibleSection>
 
         {/* Actions */}
         <div className="flex gap-3 pb-8">

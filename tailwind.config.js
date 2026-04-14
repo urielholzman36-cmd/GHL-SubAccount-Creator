@@ -24,6 +24,15 @@ export default {
         'brand-gradient': 'linear-gradient(135deg, #2dd4bf, #3b82f6, #a855f7, #ff00ff, #f97316)',
         'brand-gradient-r': 'linear-gradient(to right, #2dd4bf, #3b82f6, #a855f7, #ff00ff, #f97316)',
       },
+      keyframes: {
+        'slide-in-right': {
+          '0%': { transform: 'translateX(120%)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
+        },
+      },
+      animation: {
+        'slide-in-right': 'slide-in-right 300ms ease-out',
+      },
     },
   },
   plugins: [],

@@ -21,12 +21,13 @@ export function createAuthRouter(db) {
     req.session.authenticated = true;
     req.session.userId = user.id;
     req.session.username = user.username;
-    res.json({ ok: true, username: user.username, display_name: user.display_name });
+    req.session.isAdmin = user.is_admin;
+    res.json({ ok: true, username: user.username, display_name: user.display_name, is_admin: user.is_admin });
   });
 
   router.get('/check', (req, res) => {
     if (req.session?.authenticated) {
-      return res.json({ ok: true, username: req.session.username });
+      return res.json({ ok: true, username: req.session.username, is_admin: req.session.isAdmin });
     }
     res.status(401).json({ ok: false });
   });
@@ -47,11 +48,14 @@ export function createAuthRouter(db) {
   });
 
   router.get('/users', requireAuth, (req, res) => {
-    const users = db.prepare('SELECT id, username, display_name, created_at FROM users ORDER BY created_at').all();
+    const users = db.prepare('SELECT id, username, display_name, is_admin, created_at FROM users ORDER BY created_at').all();
     res.json(users);
   });
 
   router.post('/users', requireAuth, async (req, res) => {
+    if (!req.session.isAdmin) {
+      return res.status(403).json({ error: 'Only admins can create users' });
+    }
     const { username, password, display_name } = req.body;
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required' });
@@ -66,6 +70,9 @@ export function createAuthRouter(db) {
   });
 
   router.delete('/users/:id', requireAuth, (req, res) => {
+    if (!req.session.isAdmin) {
+      return res.status(403).json({ error: 'Only admins can delete users' });
+    }
     const targetId = Number(req.params.id);
     if (req.session.userId === targetId) {
       return res.status(400).json({ error: 'Cannot delete yourself' });

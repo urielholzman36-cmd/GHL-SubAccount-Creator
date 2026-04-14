@@ -5,6 +5,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [authenticated, setAuthenticated] = useState(null);
   const [username, setUsername] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/check')
@@ -15,10 +16,12 @@ export function AuthProvider({ children }) {
       .then((data) => {
         setAuthenticated(true);
         setUsername(data.username || null);
+        setIsAdmin(!!data.is_admin);
       })
       .catch(() => {
         setAuthenticated(false);
         setUsername(null);
+        setIsAdmin(false);
       });
   }, []);
 
@@ -33,6 +36,7 @@ export function AuthProvider({ children }) {
         const data = await res.json();
         setAuthenticated(true);
         setUsername(data.username);
+        setIsAdmin(!!data.is_admin);
         return { ok: true };
       } else {
         const data = await res.json().catch(() => ({}));
@@ -47,10 +51,11 @@ export function AuthProvider({ children }) {
     await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     setAuthenticated(false);
     setUsername(null);
+    setIsAdmin(false);
   }
 
   return (
-    <AuthContext.Provider value={{ authenticated, username, login, logout }}>
+    <AuthContext.Provider value={{ authenticated, username, isAdmin, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

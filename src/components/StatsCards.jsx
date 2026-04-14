@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useToast } from '../hooks/useToast.jsx';
 
 export default function StatsCards() {
   const [stats, setStats] = useState(null);
-  const [error, setError] = useState(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetch('/api/stats')
@@ -11,7 +12,7 @@ export default function StatsCards() {
         return r.json();
       })
       .then(setStats)
-      .catch((e) => setError(e.message));
+      .catch((e) => toast(e.message, 'error'));
   }, []);
 
   const avgSeconds =
@@ -55,9 +56,6 @@ export default function StatsCards() {
         >
           <span className={`text-3xl font-bold ${accent}`}>{value}</span>
           <span className="text-xs text-white/30 mt-1 font-medium">{label}</span>
-          {error && label === 'Total Builds' && (
-            <span className="text-xs text-red-400 mt-1">{error}</span>
-          )}
         </div>
       ))}
     </div>

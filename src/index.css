@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
 /* Scrollbar styling for dark theme */
 ::-webkit-scrollbar {
   width: 6px;
@@ -81,6 +85,12 @@ body::before {
   pointer-events: none;
   z-index: 0;
 }
+/* Focus-visible rings for accessibility */
+*:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
+}
+
 #root {
   position: relative;
   z-index: 1;

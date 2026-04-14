@@ -106,6 +106,12 @@ export function initializeDb(db) {
     );
   `);
 
+  // Admin role migration
+  const userCols = db.prepare("PRAGMA table_info(users)").all().map((c) => c.name);
+  if (!userCols.includes('is_admin')) {
+    db.exec('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0');
+  }
+
   // M3 Social Planner tables
   initializeSocialTables(db);
 }

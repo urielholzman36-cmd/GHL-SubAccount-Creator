@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import CollapsibleSection from './CollapsibleSection';
 
 const TIMEZONES = [
   'America/New_York',
@@ -91,14 +92,6 @@ function Field({ label, error, children }) {
       {label && <label className={labelClass}>{label}</label>}
       {children}
       {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
-    </div>
-  );
-}
-
-function SectionHeader({ title }) {
-  return (
-    <div className="border-b border-white/5 pb-2 mb-4">
-      <h2 className="text-sm font-bold text-white/70">{title}</h2>
     </div>
   );
 }
@@ -247,8 +240,7 @@ export default function BuildForm({ onBuildStarted }) {
       <div className="glass rounded-xl p-6 space-y-8">
 
         {/* Section 1: Business Information */}
-        <section>
-          <SectionHeader title="Business Information" />
+        <CollapsibleSection title="Business Information" defaultOpen={true}>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <Field label="Business Name" error={errors.businessName}>
@@ -354,11 +346,10 @@ export default function BuildForm({ onBuildStarted }) {
               </select>
             </Field>
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* Section 2: Configuration */}
-        <section>
-          <SectionHeader title="Configuration" />
+        <CollapsibleSection title="Configuration">
           <div className="grid grid-cols-2 gap-4">
             <Field label="Timezone" error={errors.timezone}>
               <select
@@ -400,11 +391,10 @@ export default function BuildForm({ onBuildStarted }) {
               />
             </Field>
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* Section: Website & Branding */}
-        <section>
-          <SectionHeader title="Website & Branding" />
+        <CollapsibleSection title="Website & Branding">
           <div className="grid grid-cols-1 gap-4">
             <Field label="Industry" error={errors.industryText}>
               <input
@@ -490,11 +480,10 @@ export default function BuildForm({ onBuildStarted }) {
               )}
             </Field>
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* Section 3: Account Owner */}
-        <section>
-          <SectionHeader title="Account Owner" />
+        <CollapsibleSection title="Account Owner">
           <div className="grid grid-cols-2 gap-4">
             <Field label="First Name" error={errors.firstName}>
               <input
@@ -520,7 +509,7 @@ export default function BuildForm({ onBuildStarted }) {
               />
             </Field>
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* Global error */}
         {globalError && (

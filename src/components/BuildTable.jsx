@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import BuildDetailRow from './BuildDetailRow';
+import Spinner from './Spinner';
 
 
 function StatusBadge({ status }) {
@@ -168,8 +169,8 @@ export default function BuildTable() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={6} className="text-center py-10 text-white/20">
-                  Loading...
+                <td colSpan={6} className="py-10">
+                  <div className="flex justify-center"><Spinner /></div>
                 </td>
               </tr>
             )}
