@@ -1,10 +1,9 @@
 import { initializeSocialTables } from './social-schema.js';
 
-export function initializeDb(db) {
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+export async function initializeDb(db) {
+  // Turso/libsql doesn't need WAL or foreign_keys pragma — handled server-side
 
-  db.exec(`
+  await db.executeMultiple(`
     CREATE TABLE IF NOT EXISTS builds (
       id TEXT PRIMARY KEY,
       business_name TEXT NOT NULL,
@@ -49,17 +48,19 @@ export function initializeDb(db) {
   `);
 
   // M1 additive migrations (safe to run repeatedly)
-  const buildCols = db.prepare("PRAGMA table_info(builds)").all().map((c) => c.name);
+  const buildColsResult = await db.execute("PRAGMA table_info(builds)");
+  const buildCols = buildColsResult.rows.map((c) => c.name);
   if (!buildCols.includes('paused_at_step')) {
-    db.exec('ALTER TABLE builds ADD COLUMN paused_at_step INTEGER');
+    await db.execute('ALTER TABLE builds ADD COLUMN paused_at_step INTEGER');
   }
   if (!buildCols.includes('pause_context')) {
-    db.exec('ALTER TABLE builds ADD COLUMN pause_context TEXT');
+    await db.execute('ALTER TABLE builds ADD COLUMN pause_context TEXT');
   }
 
-  const stepCols = db.prepare("PRAGMA table_info(build_steps)").all().map((c) => c.name);
+  const stepColsResult = await db.execute("PRAGMA table_info(build_steps)");
+  const stepCols = stepColsResult.rows.map((c) => c.name);
   if (!stepCols.includes('phase')) {
-    db.exec('ALTER TABLE build_steps ADD COLUMN phase INTEGER NOT NULL DEFAULT 1');
+    await db.execute('ALTER TABLE build_steps ADD COLUMN phase INTEGER NOT NULL DEFAULT 1');
   }
 
   // M2a additive migrations (safe to run repeatedly)
@@ -74,15 +75,17 @@ export function initializeDb(db) {
     ['wp_password_encrypted', 'TEXT'],
     ['business_description', 'TEXT'],
   ];
-  const buildCols2 = db.prepare("PRAGMA table_info(builds)").all().map((c) => c.name);
+  const buildCols2Result = await db.execute("PRAGMA table_info(builds)");
+  const buildCols2 = buildCols2Result.rows.map((c) => c.name);
   for (const [name, type] of m2aCols) {
     if (!buildCols2.includes(name)) {
-      db.exec(`ALTER TABLE builds ADD COLUMN ${name} ${type}`);
+      await db.execute(`ALTER TABLE builds ADD COLUMN ${name} ${type}`);
     }
   }
 
   // M2b additive migrations
-  const buildCols3 = db.prepare("PRAGMA table_info(builds)").all().map((c) => c.name);
+  const buildCols3Result = await db.execute("PRAGMA table_info(builds)");
+  const buildCols3 = buildCols3Result.rows.map((c) => c.name);
   const m2bCols = [
     ['privacy_policy_url', 'TEXT'],
     ['terms_url', 'TEXT'],
@@ -91,12 +94,12 @@ export function initializeDb(db) {
   ];
   for (const [name, type] of m2bCols) {
     if (!buildCols3.includes(name)) {
-      db.exec(`ALTER TABLE builds ADD COLUMN ${name} ${type}`);
+      await db.execute(`ALTER TABLE builds ADD COLUMN ${name} ${type}`);
     }
   }
 
   // Users table for multi-user auth
-  db.exec(`
+  await db.executeMultiple(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL UNIQUE,
@@ -107,11 +110,12 @@ export function initializeDb(db) {
   `);
 
   // Admin role migration
-  const userCols = db.prepare("PRAGMA table_info(users)").all().map((c) => c.name);
+  const userColsResult = await db.execute("PRAGMA table_info(users)");
+  const userCols = userColsResult.rows.map((c) => c.name);
   if (!userCols.includes('is_admin')) {
-    db.exec('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0');
+    await db.execute('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0');
   }
 
   // M3 Social Planner tables
-  initializeSocialTables(db);
+  await initializeSocialTables(db);
 }

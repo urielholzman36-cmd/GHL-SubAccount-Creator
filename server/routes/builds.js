@@ -164,20 +164,21 @@ export function createBuildsRouter(db) {
       };
 
       try {
-        queries.insertBuild(db, build);
-        queries.createBuildSteps(db, id);
+        await queries.insertBuild(db, build);
+        await queries.createBuildSteps(db, id);
 
         const logoPath = req.file ? path.relative(path.resolve(__dirname, '../..'), req.file.path) : null;
-        db.prepare(
-          `UPDATE builds SET industry_text = ?, business_description = ?, target_audience = ?, logo_path = ?, brand_colors = ? WHERE id = ?`
-        ).run(
-          body.industry_text.trim(),
-          (body.business_description || '').trim(),
-          body.target_audience.trim(),
-          logoPath,
-          brandColorsJson,
-          id
-        );
+        await db.execute({
+          sql: `UPDATE builds SET industry_text = ?, business_description = ?, target_audience = ?, logo_path = ?, brand_colors = ? WHERE id = ?`,
+          args: [
+            body.industry_text.trim(),
+            (body.business_description || '').trim(),
+            body.target_audience.trim(),
+            logoPath,
+            brandColorsJson,
+            id,
+          ],
+        });
       } catch (err) {
         return res.status(500).json({ error: 'Failed to create build record', details: err.message });
       }
@@ -186,22 +187,22 @@ export function createBuildsRouter(db) {
       const runner = new BuildRunner(db, ghl);
       const emit = runnerEmit(id);
 
-      runner.run(id, emit).then(() => {
-        const finalBuild = queries.getBuildById(db, id);
+      runner.run(id, emit).then(async () => {
+        const finalBuild = await queries.getBuildById(db, id);
         if (finalBuild.status === 'completed') {
           broadcastToBuild(id, 'build-complete', { id });
         } else if (finalBuild.status === 'paused') {
           // pause event already broadcast by runner
         } else {
-          const steps = queries.getBuildSteps(db, id);
+          const steps = await queries.getBuildSteps(db, id);
           const failedStep = steps.find((s) => s.status === 'failed');
           broadcastToBuild(id, 'build-failed', {
             id,
             failedStep: failedStep || null,
           });
         }
-      }).catch(() => {
-        const steps = queries.getBuildSteps(db, id);
+      }).catch(async () => {
+        const steps = await queries.getBuildSteps(db, id);
         const failedStep = steps.find((s) => s.status === 'failed');
         broadcastToBuild(id, 'build-failed', { id, failedStep: failedStep || null });
       });
@@ -211,9 +212,9 @@ export function createBuildsRouter(db) {
   });
 
   // GET /:id/stream — SSE stream for a build
-  router.get('/:id/stream', (req, res) => {
+  router.get('/:id/stream', async (req, res) => {
     const { id } = req.params;
-    const build = queries.getBuildById(db, id);
+    const build = await queries.getBuildById(db, id);
     if (!build) {
       return res.status(404).json({ error: 'Build not found' });
     }
@@ -224,7 +225,7 @@ export function createBuildsRouter(db) {
     res.flushHeaders();
 
     // Replay current state of all steps
-    const steps = queries.getBuildSteps(db, id);
+    const steps = await queries.getBuildSteps(db, id);
     for (const step of steps) {
       sendSseEvent(res, 'step-update', {
         step: step.step_number,
@@ -274,25 +275,25 @@ export function createBuildsRouter(db) {
   });
 
   // GET /:id — get single build with steps
-  router.get('/:id', (req, res) => {
+  router.get('/:id', async (req, res) => {
     const { id } = req.params;
-    const build = queries.getBuildById(db, id);
+    const build = await queries.getBuildById(db, id);
     if (!build) {
       return res.status(404).json({ error: 'Build not found' });
     }
-    const steps = queries.getBuildSteps(db, id);
+    const steps = await queries.getBuildSteps(db, id);
     res.json({ ...build, steps });
   });
 
   // GET / — list builds (paginated, filterable)
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const perPage = parseInt(req.query.perPage) || 20;
     const search = req.query.search || '';
     const industry = req.query.industry || '';
     const status = req.query.status || '';
 
-    const result = queries.listBuilds(db, { page, perPage, search, industry, status });
+    const result = await queries.listBuilds(db, { page, perPage, search, industry, status });
     res.json(result);
   });
 
@@ -305,7 +306,7 @@ export function createBuildsRouter(db) {
       return res.status(400).json({ error: 'step must be a number between 1 and 10' });
     }
 
-    const build = queries.getBuildById(db, id);
+    const build = await queries.getBuildById(db, id);
     if (!build) {
       return res.status(404).json({ error: 'Build not found' });
     }
@@ -318,19 +319,19 @@ export function createBuildsRouter(db) {
     const runner = new BuildRunner(db, ghl);
     const emit = runnerEmit(id);
 
-    runner.retryFromStep(id, stepNumber, emit).then(() => {
-      const finalBuild = queries.getBuildById(db, id);
+    runner.retryFromStep(id, stepNumber, emit).then(async () => {
+      const finalBuild = await queries.getBuildById(db, id);
       if (finalBuild.status === 'completed') {
         broadcastToBuild(id, 'build-complete', { id });
       } else if (finalBuild.status === 'paused') {
         // pause event already broadcast
       } else {
-        const steps = queries.getBuildSteps(db, id);
+        const steps = await queries.getBuildSteps(db, id);
         const failedStep = steps.find((s) => s.status === 'failed');
         broadcastToBuild(id, 'build-failed', { id, failedStep: failedStep || null });
       }
-    }).catch(() => {
-      const steps = queries.getBuildSteps(db, id);
+    }).catch(async () => {
+      const steps = await queries.getBuildSteps(db, id);
       const failedStep = steps.find((s) => s.status === 'failed');
       broadcastToBuild(id, 'build-failed', { id, failedStep: failedStep || null });
     });
@@ -341,7 +342,7 @@ export function createBuildsRouter(db) {
   // POST /:id/resume — resume a paused build
   router.post('/:id/resume', async (req, res) => {
     const { id } = req.params;
-    const build = queries.getBuildById(db, id);
+    const build = await queries.getBuildById(db, id);
     if (!build) return res.status(404).json({ error: 'Build not found' });
     if (build.status !== 'paused') {
       return res.status(400).json({ error: 'Build is not paused' });
@@ -351,17 +352,17 @@ export function createBuildsRouter(db) {
     const runner = new BuildRunner(db, ghl);
     const emit = runnerEmit(id);
 
-    runner.resume(id, req.body || {}, emit).then(() => {
-      const finalBuild = queries.getBuildById(db, id);
+    runner.resume(id, req.body || {}, emit).then(async () => {
+      const finalBuild = await queries.getBuildById(db, id);
       if (finalBuild.status === 'completed') {
         broadcastToBuild(id, 'build-complete', { id });
       } else if (finalBuild.status === 'failed') {
-        const steps = queries.getBuildSteps(db, id);
+        const steps = await queries.getBuildSteps(db, id);
         const failedStep = steps.find((s) => s.status === 'failed');
         broadcastToBuild(id, 'build-failed', { id, failedStep: failedStep || null });
       }
-    }).catch(() => {
-      const steps = queries.getBuildSteps(db, id);
+    }).catch(async () => {
+      const steps = await queries.getBuildSteps(db, id);
       const failedStep = steps.find((s) => s.status === 'failed');
       broadcastToBuild(id, 'build-failed', { id, failedStep: failedStep || null });
     });
@@ -372,7 +373,7 @@ export function createBuildsRouter(db) {
   // DELETE /:id — delete a build and its steps
   router.delete('/:id', async (req, res) => {
     const { id } = req.params;
-    const build = queries.getBuildById(db, id);
+    const build = await queries.getBuildById(db, id);
     if (!build) return res.status(404).json({ error: 'Build not found' });
 
     // Try to delete the GHL sub-account if one was created
@@ -391,8 +392,8 @@ export function createBuildsRouter(db) {
       try { fs.unlinkSync(logoFullPath); } catch (_) {}
     }
 
-    db.prepare('DELETE FROM build_steps WHERE build_id = ?').run(id);
-    db.prepare('DELETE FROM builds WHERE id = ?').run(id);
+    await db.execute({ sql: 'DELETE FROM build_steps WHERE build_id = ?', args: [id] });
+    await db.execute({ sql: 'DELETE FROM builds WHERE id = ?', args: [id] });
 
     res.json({ ok: true, deleted: id });
   });

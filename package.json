@@ -21,11 +21,11 @@
   "type": "module",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",
+    "@libsql/client": "^0.17.2",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.8.0",
-    "better-sqlite3-session-store": "^0.1.0",
     "cloudinary": "^2.9.0",
     "colorthief": "^3.3.1",
+    "cookie-session": "^2.1.1",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",

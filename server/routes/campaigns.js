@@ -17,9 +17,9 @@ export function createCampaignsRouter(db) {
   const router = Router();
 
   // GET /client/:clientId — list campaigns for a client
-  router.get('/client/:clientId', (req, res) => {
+  router.get('/client/:clientId', async (req, res) => {
     try {
-      const campaigns = socialQueries.listCampaigns(db, req.params.clientId);
+      const campaigns = await socialQueries.listCampaigns(db, req.params.clientId);
       res.json(campaigns);
     } catch (err) {
       res.status(500).json({ error: 'Failed to list campaigns', details: err.message });
@@ -27,9 +27,9 @@ export function createCampaignsRouter(db) {
   });
 
   // GET /:id/stream — SSE endpoint for campaign progress
-  router.get('/:id/stream', (req, res) => {
+  router.get('/:id/stream', async (req, res) => {
     const { id } = req.params;
-    const campaign = socialQueries.getCampaign(db, id);
+    const campaign = await socialQueries.getCampaign(db, id);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
 
     res.setHeader('Content-Type', 'text/event-stream');
@@ -70,11 +70,11 @@ export function createCampaignsRouter(db) {
   // GET /:id/csv — generate and download CSV on-the-fly (always reflects latest edits)
   router.get('/:id/csv', async (req, res) => {
     const { buildGhlCsv } = await import('../services/social-csv.js');
-    const campaign = socialQueries.getCampaign(db, req.params.id);
+    const campaign = await socialQueries.getCampaign(db, req.params.id);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
 
-    const client = socialQueries.getClient(db, campaign.client_id);
-    const posts = socialQueries.listCampaignPosts(db, campaign.id);
+    const client = await socialQueries.getClient(db, campaign.client_id);
+    const posts = await socialQueries.listCampaignPosts(db, campaign.id);
     if (!posts || posts.length === 0) return res.status(404).json({ error: 'No posts to export' });
 
     const platforms = (() => {
@@ -91,17 +91,17 @@ export function createCampaignsRouter(db) {
   });
 
   // GET /:id — get single campaign with posts
-  router.get('/:id', (req, res) => {
-    const campaign = socialQueries.getCampaign(db, req.params.id);
+  router.get('/:id', async (req, res) => {
+    const campaign = await socialQueries.getCampaign(db, req.params.id);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
-    const posts = socialQueries.listCampaignPosts(db, campaign.id);
+    const posts = await socialQueries.listCampaignPosts(db, campaign.id);
     res.json({ ...campaign, posts });
   });
 
   // POST / — create a new campaign
-  router.post('/', (req, res) => {
+  router.post('/', async (req, res) => {
     try {
-      const id = socialQueries.createCampaign(db, req.body);
+      const id = await socialQueries.createCampaign(db, req.body);
       res.status(201).json({ id });
     } catch (err) {
       res.status(500).json({ error: 'Failed to create campaign', details: err.message });
@@ -109,19 +109,19 @@ export function createCampaignsRouter(db) {
   });
 
   // POST /:id/start — update brief fields and start the pipeline
-  router.post('/:id/start', (req, res) => {
+  router.post('/:id/start', async (req, res) => {
     const { id } = req.params;
-    const campaign = socialQueries.getCampaign(db, id);
+    const campaign = await socialQueries.getCampaign(db, id);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
 
     const { month, theme, start_date, post_count } = req.body || {};
 
     // Update brief fields if provided
-    if (month) socialQueries.updateCampaignField(db, id, 'month', month);
-    if (theme) socialQueries.updateCampaignField(db, id, 'theme', theme);
-    if (start_date) socialQueries.updateCampaignField(db, id, 'start_date', start_date);
-    if (post_count) socialQueries.updateCampaignField(db, id, 'post_count', post_count);
-    if (req.body && req.body.manus_research) socialQueries.updateCampaignField(db, id, 'manus_research', req.body.manus_research);
+    if (month) await socialQueries.updateCampaignField(db, id, 'month', month);
+    if (theme) await socialQueries.updateCampaignField(db, id, 'theme', theme);
+    if (start_date) await socialQueries.updateCampaignField(db, id, 'start_date', start_date);
+    if (post_count) await socialQueries.updateCampaignField(db, id, 'post_count', post_count);
+    if (req.body && req.body.manus_research) await socialQueries.updateCampaignField(db, id, 'manus_research', req.body.manus_research);
 
     // Run pipeline async
     const runner = new SocialRunner(db, (data) => broadcastToCampaign(id, data));
@@ -133,9 +133,9 @@ export function createCampaignsRouter(db) {
   });
 
   // POST /:id/resume — resume a paused campaign
-  router.post('/:id/resume', (req, res) => {
+  router.post('/:id/resume', async (req, res) => {
     const { id } = req.params;
-    const campaign = socialQueries.getCampaign(db, id);
+    const campaign = await socialQueries.getCampaign(db, id);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
 
     const runner = new SocialRunner(db, (data) => broadcastToCampaign(id, data));
@@ -147,13 +147,13 @@ export function createCampaignsRouter(db) {
   });
 
   // POST /:id/manus — update manus_research field
-  router.post('/:id/manus', (req, res) => {
+  router.post('/:id/manus', async (req, res) => {
     const { id } = req.params;
-    const campaign = socialQueries.getCampaign(db, id);
+    const campaign = await socialQueries.getCampaign(db, id);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
 
     try {
-      socialQueries.updateCampaignField(db, id, 'manus_research', req.body.manus_research);
+      await socialQueries.updateCampaignField(db, id, 'manus_research', req.body.manus_research);
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: 'Failed to update manus research', details: err.message });
@@ -161,9 +161,9 @@ export function createCampaignsRouter(db) {
   });
 
   // POST /:id/retry/:step — retry from a specific step
-  router.post('/:id/retry/:step', (req, res) => {
+  router.post('/:id/retry/:step', async (req, res) => {
     const { id, step } = req.params;
-    const campaign = socialQueries.getCampaign(db, id);
+    const campaign = await socialQueries.getCampaign(db, id);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
 
     const runner = new SocialRunner(db, (data) => broadcastToCampaign(id, data));
@@ -175,9 +175,9 @@ export function createCampaignsRouter(db) {
   });
 
   // PUT /:id/posts/:postId — update a single post
-  router.put('/:id/posts/:postId', (req, res) => {
+  router.put('/:id/posts/:postId', async (req, res) => {
     try {
-      socialQueries.updateCampaignPost(db, req.params.postId, { ...req.body, edited: 1 });
+      await socialQueries.updateCampaignPost(db, req.params.postId, { ...req.body, edited: 1 });
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: 'Failed to update post', details: err.message });
@@ -185,13 +185,13 @@ export function createCampaignsRouter(db) {
   });
 
   // DELETE /:id — delete campaign and its posts
-  router.delete('/:id', (req, res) => {
+  router.delete('/:id', async (req, res) => {
     const { id } = req.params;
-    const campaign = socialQueries.getCampaign(db, id);
+    const campaign = await socialQueries.getCampaign(db, id);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
 
     try {
-      socialQueries.deleteCampaign(db, id);
+      await socialQueries.deleteCampaign(db, id);
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: 'Failed to delete campaign', details: err.message });

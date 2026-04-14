@@ -1,91 +1,113 @@
 import { getAllSteps, getPhaseForStep } from '../services/phases.config.js';
 
-export function insertBuild(db, build) {
-  const stmt = db.prepare(`
-    INSERT INTO builds (id, business_name, business_email, business_phone, address, city, state, zip, country, industry, timezone, owner_first_name, owner_last_name, area_code, website_url)
-    VALUES (@id, @business_name, @business_email, @business_phone, @address, @city, @state, @zip, @country, @industry, @timezone, @owner_first_name, @owner_last_name, @area_code, @website_url)
-  `);
-  stmt.run(build);
-}
-
-export function createBuildSteps(db, buildId) {
-  const stmt = db.prepare(
-    `INSERT INTO build_steps (build_id, step_number, step_name, phase) VALUES (?, ?, ?, ?)`
-  );
-  const steps = getAllSteps();
-  const insertMany = db.transaction(() => {
-    for (const s of steps) {
-      stmt.run(buildId, s.number, s.name, getPhaseForStep(s.number));
-    }
+export async function insertBuild(db, build) {
+  await db.execute({
+    sql: `INSERT INTO builds (id, business_name, business_email, business_phone, address, city, state, zip, country, industry, timezone, owner_first_name, owner_last_name, area_code, website_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [build.id, build.business_name, build.business_email, build.business_phone, build.address, build.city, build.state, build.zip, build.country, build.industry, build.timezone, build.owner_first_name, build.owner_last_name, build.area_code, build.website_url],
   });
-  insertMany();
 }
 
-export function setPauseState(db, buildId, stepNumber, context) {
-  db.prepare(
-    `UPDATE builds SET status = 'paused', paused_at_step = ?, pause_context = ? WHERE id = ?`
-  ).run(stepNumber, JSON.stringify(context), buildId);
+export async function createBuildSteps(db, buildId) {
+  const steps = getAllSteps();
+  const stmts = steps.map(s => ({
+    sql: 'INSERT INTO build_steps (build_id, step_number, step_name, phase) VALUES (?, ?, ?, ?)',
+    args: [buildId, s.number, s.name, getPhaseForStep(s.number)],
+  }));
+  await db.batch(stmts);
 }
 
-export function clearPauseState(db, buildId) {
-  db.prepare(
-    `UPDATE builds SET paused_at_step = NULL, pause_context = NULL WHERE id = ?`
-  ).run(buildId);
+export async function setPauseState(db, buildId, stepNumber, context) {
+  await db.execute({
+    sql: `UPDATE builds SET status = 'paused', paused_at_step = ?, pause_context = ? WHERE id = ?`,
+    args: [stepNumber, JSON.stringify(context), buildId],
+  });
 }
 
-export function getBuildById(db, id) {
-  return db.prepare('SELECT * FROM builds WHERE id = ?').get(id);
+export async function clearPauseState(db, buildId) {
+  await db.execute({
+    sql: `UPDATE builds SET paused_at_step = NULL, pause_context = NULL WHERE id = ?`,
+    args: [buildId],
+  });
 }
 
-export function getBuildSteps(db, buildId) {
-  return db.prepare('SELECT * FROM build_steps WHERE build_id = ? ORDER BY step_number').all(buildId);
+export async function getBuildById(db, id) {
+  const result = await db.execute({ sql: 'SELECT * FROM builds WHERE id = ?', args: [id] });
+  return result.rows[0] || null;
 }
 
-export function updateBuildStatus(db, id, status, totalDurationMs = null) {
+export async function getBuildSteps(db, buildId) {
+  const result = await db.execute({ sql: 'SELECT * FROM build_steps WHERE build_id = ? ORDER BY step_number', args: [buildId] });
+  return result.rows;
+}
+
+export async function updateBuildStatus(db, id, status, totalDurationMs = null) {
   if (status === 'completed' || status === 'failed') {
-    db.prepare('UPDATE builds SET status = ?, completed_at = datetime(\'now\'), total_duration_ms = ? WHERE id = ?').run(status, totalDurationMs, id);
+    await db.execute({
+      sql: "UPDATE builds SET status = ?, completed_at = datetime('now'), total_duration_ms = ? WHERE id = ?",
+      args: [status, totalDurationMs, id],
+    });
   } else {
-    db.prepare('UPDATE builds SET status = ? WHERE id = ?').run(status, id);
+    await db.execute({
+      sql: 'UPDATE builds SET status = ? WHERE id = ?',
+      args: [status, id],
+    });
   }
 }
 
-export function updateBuildLocationId(db, id, locationId) {
-  db.prepare('UPDATE builds SET location_id = ? WHERE id = ?').run(locationId, id);
+export async function updateBuildLocationId(db, id, locationId) {
+  await db.execute({ sql: 'UPDATE builds SET location_id = ? WHERE id = ?', args: [locationId, id] });
 }
 
-export function updateStepStatus(db, buildId, stepNumber, status, durationMs = null, errorMessage = null, apiResponse = null) {
+export async function updateStepStatus(db, buildId, stepNumber, status, durationMs = null, errorMessage = null, apiResponse = null) {
   if (status === 'running') {
-    db.prepare(`UPDATE build_steps SET status = ?, started_at = datetime('now') WHERE build_id = ? AND step_number = ?`).run(status, buildId, stepNumber);
+    await db.execute({
+      sql: `UPDATE build_steps SET status = ?, started_at = datetime('now') WHERE build_id = ? AND step_number = ?`,
+      args: [status, buildId, stepNumber],
+    });
   } else {
-    db.prepare(`UPDATE build_steps SET status = ?, completed_at = datetime('now'), duration_ms = ?, error_message = ?, api_response = ? WHERE build_id = ? AND step_number = ?`).run(status, durationMs, errorMessage, apiResponse, buildId, stepNumber);
+    await db.execute({
+      sql: `UPDATE build_steps SET status = ?, completed_at = datetime('now'), duration_ms = ?, error_message = ?, api_response = ? WHERE build_id = ? AND step_number = ?`,
+      args: [status, durationMs, errorMessage, apiResponse, buildId, stepNumber],
+    });
   }
 }
 
-export function incrementStepRetry(db, buildId, stepNumber) {
-  db.prepare('UPDATE build_steps SET retry_count = retry_count + 1 WHERE build_id = ? AND step_number = ?').run(buildId, stepNumber);
+export async function incrementStepRetry(db, buildId, stepNumber) {
+  await db.execute({
+    sql: 'UPDATE build_steps SET retry_count = retry_count + 1 WHERE build_id = ? AND step_number = ?',
+    args: [buildId, stepNumber],
+  });
 }
 
-export function listBuilds(db, { page = 1, perPage = 20, search = '', industry = '', status = '' } = {}) {
+export async function listBuilds(db, { page = 1, perPage = 20, search = '', industry = '', status = '' } = {}) {
   let where = 'WHERE 1=1';
-  const params = {};
-  if (search) { where += ' AND (business_name LIKE @search OR business_email LIKE @search OR location_id LIKE @search)'; params.search = `%${search}%`; }
-  if (industry) { where += ' AND industry = @industry'; params.industry = industry; }
-  if (status) { where += ' AND status = @status'; params.status = status; }
-  const total = db.prepare(`SELECT COUNT(*) as count FROM builds ${where}`).get(params).count;
-  const builds = db.prepare(`SELECT * FROM builds ${where} ORDER BY created_at DESC LIMIT @limit OFFSET @offset`).all({ ...params, limit: perPage, offset: (page - 1) * perPage });
-  return { builds, total, page, perPage };
+  const args = [];
+  if (search) { where += ' AND (business_name LIKE ? OR business_email LIKE ? OR location_id LIKE ?)'; args.push(`%${search}%`, `%${search}%`, `%${search}%`); }
+  if (industry) { where += ' AND industry = ?'; args.push(industry); }
+  if (status) { where += ' AND status = ?'; args.push(status); }
+
+  const countResult = await db.execute({ sql: `SELECT COUNT(*) as count FROM builds ${where}`, args });
+  const total = countResult.rows[0].count;
+
+  const buildsResult = await db.execute({
+    sql: `SELECT * FROM builds ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    args: [...args, perPage, (page - 1) * perPage],
+  });
+  return { builds: buildsResult.rows, total, page, perPage };
 }
 
-export function getStats(db) {
-  const row = db.prepare(`SELECT COUNT(*) as total, SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as successful, SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed, AVG(CASE WHEN status = 'completed' THEN total_duration_ms END) as avg_duration_ms FROM builds`).get();
+export async function getStats(db) {
+  const result = await db.execute(`SELECT COUNT(*) as total, SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as successful, SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed, AVG(CASE WHEN status = 'completed' THEN total_duration_ms END) as avg_duration_ms FROM builds`);
+  const row = result.rows[0];
   return { total: row.total, successful: row.successful || 0, failed: row.failed || 0, avg_duration_ms: row.avg_duration_ms ? Math.round(row.avg_duration_ms) : 0 };
 }
 
-export function setSetting(db, key, value) {
-  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
+export async function setSetting(db, key, value) {
+  await db.execute({ sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', args: [key, value] });
 }
 
-export function getSetting(db, key) {
-  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
-  return row ? row.value : null;
+export async function getSetting(db, key) {
+  const result = await db.execute({ sql: 'SELECT value FROM settings WHERE key = ?', args: [key] });
+  return result.rows[0] ? result.rows[0].value : null;
 }

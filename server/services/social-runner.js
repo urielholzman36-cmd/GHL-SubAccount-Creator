@@ -78,7 +78,7 @@ export class SocialRunner {
       if (stepDef.manual) {
         // Update status and pause
         const status = STATUS_MAP[stepNum];
-        updateCampaignStatus(this.db, campaignId, status, stepNum);
+        await updateCampaignStatus(this.db, campaignId, status, stepNum);
         this.emit({ type: 'campaign-paused', step: stepNum, status });
         return;
       }
@@ -87,7 +87,7 @@ export class SocialRunner {
     }
 
     // All steps completed
-    updateCampaignStatus(this.db, campaignId, 'exported', 7);
+    await updateCampaignStatus(this.db, campaignId, 'exported', 7);
   }
 
   /**
@@ -96,7 +96,7 @@ export class SocialRunner {
    * If paused at step 7 (review final), export CSV and mark exported.
    */
   async resume(campaignId, payload) {
-    const campaign = getCampaign(this.db, campaignId);
+    const campaign = await getCampaign(this.db, campaignId);
     const currentStep = campaign.current_step;
 
     if (currentStep === 4) {
@@ -105,7 +105,7 @@ export class SocialRunner {
     } else if (currentStep === 7) {
       // Export CSV and mark done
       await this._step7ExportCsv(campaignId);
-      updateCampaignStatus(this.db, campaignId, 'exported', 7);
+      await updateCampaignStatus(this.db, campaignId, 'exported', 7);
     }
   }
 
@@ -123,7 +123,7 @@ export class SocialRunner {
     const status = STATUS_MAP[stepNum];
 
     this.emit({ type: 'step-update', step: stepNum, status: 'running' });
-    updateCampaignStatus(this.db, campaignId, status, stepNum);
+    await updateCampaignStatus(this.db, campaignId, status, stepNum);
 
     try {
       await this._runStepLogic(campaignId, stepNum);
@@ -151,7 +151,7 @@ export class SocialRunner {
   // ── Step 1: Validate brief ────────────────────────────────────
 
   async _step1ValidateBrief(campaignId) {
-    const campaign = getCampaign(this.db, campaignId);
+    const campaign = await getCampaign(this.db, campaignId);
     if (!campaign.month) throw new Error('Campaign is missing month');
     if (!campaign.start_date) throw new Error('Campaign is missing start_date');
   }
@@ -159,20 +159,20 @@ export class SocialRunner {
   // ── Step 2: Research ──────────────────────────────────────────
 
   async _step2Research(campaignId) {
-    const campaign = getCampaign(this.db, campaignId);
-    const client = getClient(this.db, campaign.client_id);
+    const campaign = await getCampaign(this.db, campaignId);
+    const client = await getClient(this.db, campaign.client_id);
 
     const webResearch = await runWebResearch(client, campaign.month, campaign.theme);
     // Manus research is now provided upfront with the campaign start request
     const merged = mergeResearch(webResearch, campaign.manus_research);
-    updateCampaignField(this.db, campaignId, 'research_brief', merged);
+    await updateCampaignField(this.db, campaignId, 'research_brief', merged);
   }
 
   // ── Step 3: Generate strategy pack ────────────────────────────
 
   async _step3GenerateStrategy(campaignId) {
-    const campaign = getCampaign(this.db, campaignId);
-    const client = getClient(this.db, campaign.client_id);
+    const campaign = await getCampaign(this.db, campaignId);
+    const client = await getClient(this.db, campaign.client_id);
 
     const postCount = campaign.post_count || 30;
     const pack = await generateStrategyPack(
@@ -180,7 +180,7 @@ export class SocialRunner {
       { apiKey: process.env.ANTHROPIC_API_KEY, postCount },
     );
 
-    updateCampaignField(this.db, campaignId, 'strategy_pack', JSON.stringify(pack));
+    await updateCampaignField(this.db, campaignId, 'strategy_pack', JSON.stringify(pack));
 
     // Create campaign_posts rows from the strategy pack
     const posts = pack.map((post, idx) => {
@@ -220,15 +220,15 @@ export class SocialRunner {
       };
     });
 
-    bulkCreateCampaignPosts(this.db, posts);
+    await bulkCreateCampaignPosts(this.db, posts);
   }
 
   // ── Step 5: Generate images ───────────────────────────────────
 
   async _step5GenerateImages(campaignId) {
-    const campaign = getCampaign(this.db, campaignId);
-    const client = getClient(this.db, campaign.client_id);
-    const posts = listCampaignPosts(this.db, campaignId);
+    const campaign = await getCampaign(this.db, campaignId);
+    const client = await getClient(this.db, campaign.client_id);
+    const posts = await listCampaignPosts(this.db, campaignId);
 
     const campaignDir = path.join(DATA_DIR, 'social', `campaign-${campaignId}`);
     fs.mkdirSync(campaignDir, { recursive: true });
@@ -242,7 +242,7 @@ export class SocialRunner {
 
     const csvPath = path.join(campaignDir, 'prompts.csv');
     writePromptsCsv(csvPath, cleanedPosts);
-    updateCampaignField(this.db, campaignId, 'prompts_csv_path', csvPath);
+    await updateCampaignField(this.db, campaignId, 'prompts_csv_path', csvPath);
 
     if (process.env.DRY_RUN === 'true') {
       // Create placeholder folders with minimal files
@@ -260,15 +260,15 @@ export class SocialRunner {
         }
       }
 
-      updateCampaignField(this.db, campaignId, 'images_folder', campaignDir);
+      await updateCampaignField(this.db, campaignId, 'images_folder', campaignDir);
       return;
     }
 
     // Live mode: spawn Krea
     await new Promise((resolve, reject) => {
       runKreaGeneration(client.name, csvPath, campaignDir, {
-        onComplete: (contentDir) => {
-          updateCampaignField(this.db, campaignId, 'images_folder', contentDir);
+        onComplete: async (contentDir) => {
+          await updateCampaignField(this.db, campaignId, 'images_folder', contentDir);
           resolve();
         },
         onError: reject,
@@ -279,9 +279,9 @@ export class SocialRunner {
   // ── Step 6: Watermark + Upload ────────────────────────────────
 
   async _step6WatermarkUpload(campaignId) {
-    const campaign = getCampaign(this.db, campaignId);
-    const client = getClient(this.db, campaign.client_id);
-    const posts = listCampaignPosts(this.db, campaignId);
+    const campaign = await getCampaign(this.db, campaignId);
+    const client = await getClient(this.db, campaign.client_id);
+    const posts = await listCampaignPosts(this.db, campaignId);
     const imagesFolder = campaign.images_folder;
 
     if (!imagesFolder) throw new Error('No images_folder set on campaign');
@@ -295,7 +295,7 @@ export class SocialRunner {
         const fakeUrls = files.map((_, i) =>
           `https://fake-cloudinary.com/${client.name}/day${post.day_number}-s${i}.jpg`,
         );
-        updateCampaignPost(this.db, post.id, {
+        await updateCampaignPost(this.db, post.id, {
           image_urls: JSON.stringify(fakeUrls),
         });
       }
@@ -340,7 +340,7 @@ export class SocialRunner {
         urls.push(url);
       }
 
-      updateCampaignPost(this.db, post.id, {
+      await updateCampaignPost(this.db, post.id, {
         image_urls: JSON.stringify(urls),
       });
     }
@@ -349,9 +349,9 @@ export class SocialRunner {
   // ── Step 7: Export CSV ────────────────────────────────────────
 
   async _step7ExportCsv(campaignId) {
-    const campaign = getCampaign(this.db, campaignId);
-    const client = getClient(this.db, campaign.client_id);
-    const posts = listCampaignPosts(this.db, campaignId);
+    const campaign = await getCampaign(this.db, campaignId);
+    const client = await getClient(this.db, campaign.client_id);
+    const posts = await listCampaignPosts(this.db, campaignId);
 
     let platforms;
     try {
@@ -367,6 +367,6 @@ export class SocialRunner {
     const csvPath = path.join(campaignDir, 'ghl-export.csv');
     fs.writeFileSync(csvPath, csv, 'utf-8');
 
-    updateCampaignField(this.db, campaignId, 'csv_path', csvPath);
+    await updateCampaignField(this.db, campaignId, 'csv_path', csvPath);
   }
 }

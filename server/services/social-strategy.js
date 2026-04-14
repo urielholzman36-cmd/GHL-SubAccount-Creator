@@ -76,7 +76,30 @@ ${pillars}
 - For carousel posts: slide_count = 3–5, visual_prompt MUST contain separate prompts labeled "Slide 1: ...", "Slide 2: ...", etc. Each slide should show a different angle, step, or aspect of the concept — NOT the same scene repeated.
 - For before_after posts: slide_count = 2, visual_prompt MUST contain "Slide 1: ..." (the before/problem state) and "Slide 2: ..." (the after/fixed state). IMPORTANT: describe the SAME location, angle, and composition for both slides — only the condition changes. The "after" image will be generated using the "before" image as a visual reference, so scene consistency is critical.
 - Make all content specific to the client's location and industry. Reference local landmarks, events, and market conditions.
-- CRITICAL for visual_prompt: NEVER include text, logos, watermarks, brand names, words, letters, or any typography in the image. The image must be purely visual — no overlays, no fake branding, no text of any kind. A separate watermark will be applied later. Describe only the scene, objects, lighting, composition, and mood.
+
+## CRITICAL — Visual Prompt Style Guide
+
+Every visual_prompt MUST follow the **infographic/design style** described below. NEVER generate prompts that try to mimic real photography or depict realistic people.
+
+### DO (infographic/design style):
+- Dark backgrounds (deep navy, charcoal, near-black) with glowing neon accents, gradients, and light trails
+- Conceptual diagrams: flowcharts, checklists, timelines, before/after comparison layouts, pipeline stages
+- Floating UI elements: dashboard mockups, glowing cards, notification panels, app interfaces
+- Bold visual metaphors: glowing funnels, connected nodes, orbiting icons, energy flows
+- Abstract 3D renders: geometric shapes, glass morphism elements, floating objects
+- Data visualizations: progress bars, gauge meters, stat displays, percentage wheels
+- Use the client's brand colors as glowing accents, neon highlights, and gradient tones against dark backgrounds
+
+### NEVER DO (fake photography style):
+- No realistic people (no "person smiling", "technician working", "customer holding sign", "team posing")
+- No simulated iPhone/camera photography (no "golden hour", "portrait photography", "lifestyle shot")
+- No fake job sites, storefronts, homes, or real-world locations rendered as photos
+- No "documentary photography", "testimonial portrait", or "behind-the-scenes" photo styles
+- No attempts to make AI images look like real photographs — they always look fake and hurt credibility
+
+### Format rules:
+- NEVER include text, logos, watermarks, brand names, words, letters, or any typography in the image. The image must be purely visual — no overlays, no fake branding, no text of any kind. A separate watermark will be applied later.
+- Describe the visual composition, color palette, lighting effects, and conceptual elements clearly.
 
 Return ONLY a valid JSON array of ${postCount} post objects. No additional text.`;
 

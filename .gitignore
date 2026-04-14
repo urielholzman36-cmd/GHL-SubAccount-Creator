@@ -10,3 +10,4 @@ data/logos/
 # Campaign data (images, CSVs, etc.)
 data/campaigns/
 data/social/
+.vercel

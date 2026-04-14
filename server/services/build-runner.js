@@ -41,39 +41,40 @@ export class BuildRunner {
   }
 
   async run(buildId, emit) {
-    const build = queries.getBuildById(this.db, buildId);
+    const build = await queries.getBuildById(this.db, buildId);
     if (!build) throw new Error(`Build not found: ${buildId}`);
-    queries.updateBuildStatus(this.db, buildId, 'running');
+    await queries.updateBuildStatus(this.db, buildId, 'running');
     const startTime = Date.now();
     await this._runFromStep(build, 1, startTime, emit, { resumePayload: null });
   }
 
   async resume(buildId, resumePayload, emit) {
-    const build = queries.getBuildById(this.db, buildId);
+    const build = await queries.getBuildById(this.db, buildId);
     if (!build) throw new Error(`Build not found: ${buildId}`);
     if (build.status !== 'paused') throw new Error(`Build is not paused: ${buildId}`);
 
     const fromStep = build.paused_at_step;
-    queries.clearPauseState(this.db, buildId);
-    queries.updateBuildStatus(this.db, buildId, 'running');
+    await queries.clearPauseState(this.db, buildId);
+    await queries.updateBuildStatus(this.db, buildId, 'running');
     const startTime = Date.now();
     await this._runFromStep(build, fromStep, startTime, emit, { resumePayload });
   }
 
   async retryFromStep(buildId, fromStep, emit) {
-    const build = queries.getBuildById(this.db, buildId);
+    const build = await queries.getBuildById(this.db, buildId);
     if (!build) throw new Error(`Build not found: ${buildId}`);
-    queries.updateBuildStatus(this.db, buildId, 'running');
+    await queries.updateBuildStatus(this.db, buildId, 'running');
     const startTime = Date.now();
 
-    const steps = queries.getBuildSteps(this.db, buildId);
+    const steps = await queries.getBuildSteps(this.db, buildId);
     for (const step of steps) {
       if (step.step_number >= fromStep) {
-        this.db.prepare(
-          `UPDATE build_steps SET status = 'pending', started_at = NULL, completed_at = NULL,
+        await this.db.execute({
+          sql: `UPDATE build_steps SET status = 'pending', started_at = NULL, completed_at = NULL,
            duration_ms = NULL, error_message = NULL, api_response = NULL, retry_count = 0
-           WHERE build_id = ? AND step_number = ?`
-        ).run(buildId, step.step_number);
+           WHERE build_id = ? AND step_number = ?`,
+          args: [buildId, step.step_number],
+        });
       }
     }
     await this._runFromStep(build, fromStep, startTime, emit, { resumePayload: null });
@@ -96,10 +97,10 @@ export class BuildRunner {
         emit({ type: 'phase-complete', phase: phase.id });
       }
 
-      queries.updateBuildStatus(this.db, build.id, 'completed', Date.now() - startTime);
+      await queries.updateBuildStatus(this.db, build.id, 'completed', Date.now() - startTime);
     } catch (err) {
       if (err && err.isPauseSignal) {
-        queries.setPauseState(this.db, build.id, err.stepNumber, err.context);
+        await queries.setPauseState(this.db, build.id, err.stepNumber, err.context);
         emit({
           type: 'build-paused',
           step: err.stepNumber,
@@ -108,7 +109,7 @@ export class BuildRunner {
         });
         return;
       }
-      queries.updateBuildStatus(this.db, build.id, 'failed', Date.now() - startTime);
+      await queries.updateBuildStatus(this.db, build.id, 'failed', Date.now() - startTime);
     }
   }
 
@@ -116,7 +117,7 @@ export class BuildRunner {
     const buildId = build.id;
     const optional = isStepOptional(stepNumber);
 
-    queries.updateStepStatus(this.db, buildId, stepNumber, 'running');
+    await queries.updateStepStatus(this.db, buildId, stepNumber, 'running');
     emit({ type: 'step-update', step: stepNumber, status: 'running' });
 
     const stepStart = Date.now();
@@ -124,7 +125,7 @@ export class BuildRunner {
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       if (attempt > 0) {
-        queries.incrementStepRetry(this.db, buildId, stepNumber);
+        await queries.incrementStepRetry(this.db, buildId, stepNumber);
         const delay = this.backoffMs[attempt - 1] ?? this.backoffMs[this.backoffMs.length - 1];
         await sleep(delay);
       }
@@ -133,7 +134,7 @@ export class BuildRunner {
         const result = await this._runStepLogic(build, stepNumber, state, ctx);
         Object.assign(state, result);
         const durationMs = Date.now() - stepStart;
-        queries.updateStepStatus(
+        await queries.updateStepStatus(
           this.db, buildId, stepNumber, 'completed', durationMs, null, JSON.stringify(result)
         );
         emit({ type: 'step-update', step: stepNumber, status: 'completed', duration_ms: durationMs });
@@ -149,7 +150,7 @@ export class BuildRunner {
     const errMsg = lastError?.message ?? 'Unknown error';
 
     if (optional) {
-      queries.updateStepStatus(
+      await queries.updateStepStatus(
         this.db, buildId, stepNumber, 'warning', durationMs, errMsg, null
       );
       emit({
@@ -162,7 +163,7 @@ export class BuildRunner {
       return;
     }
 
-    queries.updateStepStatus(
+    await queries.updateStepStatus(
       this.db, buildId, stepNumber, 'failed', durationMs, errMsg, null
     );
     emit({ type: 'step-update', step: stepNumber, status: 'failed', error: errMsg });
@@ -170,7 +171,7 @@ export class BuildRunner {
   }
 
   async _runStepLogic(build, stepNumber, state, ctx) {
-    const freshBuild = queries.getBuildById(this.db, build.id) || build;
+    const freshBuild = await queries.getBuildById(this.db, build.id) || build;
     switch (stepNumber) {
       case 1: return await this._step1CreateLocation(freshBuild);
       case 2: return await this._step2GeneratePrompt(freshBuild, state);
@@ -203,7 +204,7 @@ export class BuildRunner {
 
     const response = await this.ghl.createLocation(locationData);
     const locationId = response.location.id;
-    queries.updateBuildLocationId(this.db, build.id, locationId);
+    await queries.updateBuildLocationId(this.db, build.id, locationId);
     return { locationId };
   }
 
@@ -212,13 +213,13 @@ export class BuildRunner {
     if (!promptText || typeof promptText !== 'string') {
       throw new Error('generatePromptImpl returned empty response');
     }
-    this.db.prepare('UPDATE builds SET tenweb_prompt = ? WHERE id = ?').run(promptText, build.id);
+    await this.db.execute({ sql: 'UPDATE builds SET tenweb_prompt = ? WHERE id = ?', args: [promptText, build.id] });
     return { tenwebPromptGenerated: true };
   }
 
   async _step3WebsiteCreationManual(build, state, ctx) {
     if (!ctx.resumePayload) {
-      const row = queries.getBuildById(this.db, build.id);
+      const row = await queries.getBuildById(this.db, build.id);
       throw new PauseSignal(3, {
         reason: 'awaiting_website',
         prompt: row.tenweb_prompt || '',
@@ -240,9 +241,10 @@ export class BuildRunner {
     }
 
     const encrypted = encrypt(wp_password);
-    this.db.prepare(
-      'UPDATE builds SET wp_url = ?, wp_username = ?, wp_password_encrypted = ? WHERE id = ?'
-    ).run(wp_url.trim(), wp_username.trim(), encrypted, build.id);
+    await this.db.execute({
+      sql: 'UPDATE builds SET wp_url = ?, wp_username = ?, wp_password_encrypted = ? WHERE id = ?',
+      args: [wp_url.trim(), wp_username.trim(), encrypted, build.id],
+    });
 
     return { credentialsStored: true };
   }
@@ -328,9 +330,10 @@ export class BuildRunner {
     await wp.draftDuplicatePages('Terms and Conditions', -1); // 10web sometimes names it this
     await wp.draftDuplicatePages('FAQ', faqResult.id);
 
-    this.db.prepare(
-      'UPDATE builds SET privacy_policy_url = ?, terms_url = ?, faq_url = ? WHERE id = ?'
-    ).run(ppResult.link, tosResult.link, faqResult.link, build.id);
+    await this.db.execute({
+      sql: 'UPDATE builds SET privacy_policy_url = ?, terms_url = ?, faq_url = ? WHERE id = ?',
+      args: [ppResult.link, tosResult.link, faqResult.link, build.id],
+    });
 
     return {
       privacyPolicyUrl: ppResult.link,
@@ -343,7 +346,7 @@ export class BuildRunner {
   }
 
   async _getStateFromPriorSteps(buildId, fromStep) {
-    const build = queries.getBuildById(this.db, buildId);
+    const build = await queries.getBuildById(this.db, buildId);
     const state = {};
 
     if (build.location_id) {
@@ -352,7 +355,7 @@ export class BuildRunner {
 
     if (fromStep <= 1) return state;
 
-    const steps = queries.getBuildSteps(this.db, buildId);
+    const steps = await queries.getBuildSteps(this.db, buildId);
     for (const step of steps) {
       if (step.step_number < fromStep && step.status === 'completed' && step.api_response) {
         try {

@@ -2,8 +2,8 @@
  * Social Planner tables — clients, campaigns, campaign_posts.
  * Called from initializeDb() after the core onboarding tables exist.
  */
-export function initializeSocialTables(db) {
-  db.exec(`
+export async function initializeSocialTables(db) {
+  await db.executeMultiple(`
     CREATE TABLE IF NOT EXISTS clients (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,

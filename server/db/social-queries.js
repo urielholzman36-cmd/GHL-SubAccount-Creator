@@ -1,5 +1,6 @@
 /**
  * Social Planner CRUD queries — clients, campaigns, campaign_posts.
+ * Async version for @libsql/client (Turso).
  */
 
 // ── Client allowlist ──────────────────────────────────────────────
@@ -27,119 +28,122 @@ const POST_FIELDS = new Set([
 
 // ── Clients ───────────────────────────────────────────────────────
 
-export function createClient(db, data) {
+export async function createClient(db, data) {
   const fields = Object.keys(data).filter(k => CLIENT_FIELDS.has(k));
   const cols = fields.join(', ');
   const placeholders = fields.map(() => '?').join(', ');
   const values = fields.map(k => data[k]);
 
-  const stmt = db.prepare(`INSERT INTO clients (${cols}) VALUES (${placeholders})`);
-  const result = stmt.run(...values);
+  const result = await db.execute({ sql: `INSERT INTO clients (${cols}) VALUES (${placeholders})`, args: values });
   return result.lastInsertRowid;
 }
 
-export function getClient(db, id) {
-  return db.prepare('SELECT * FROM clients WHERE id = ?').get(id);
+export async function getClient(db, id) {
+  const result = await db.execute({ sql: 'SELECT * FROM clients WHERE id = ?', args: [id] });
+  return result.rows[0] || null;
 }
 
-export function listClients(db) {
-  return db.prepare('SELECT * FROM clients ORDER BY created_at DESC').all();
+export async function listClients(db) {
+  const result = await db.execute('SELECT * FROM clients ORDER BY created_at DESC');
+  return result.rows;
 }
 
-export function updateClient(db, id, data) {
+export async function updateClient(db, id, data) {
   const fields = Object.keys(data).filter(k => CLIENT_FIELDS.has(k));
   if (fields.length === 0) return;
   const sets = fields.map(k => `${k} = ?`).join(', ');
   const values = fields.map(k => data[k]);
-  db.prepare(`UPDATE clients SET ${sets} WHERE id = ?`).run(...values, id);
+  await db.execute({ sql: `UPDATE clients SET ${sets} WHERE id = ?`, args: [...values, id] });
 }
 
-export function deleteClient(db, id) {
-  const deleteTx = db.transaction(() => {
-    // Get campaign IDs for this client
-    const campaigns = db.prepare('SELECT id FROM campaigns WHERE client_id = ?').all(id);
-    for (const c of campaigns) {
-      db.prepare('DELETE FROM campaign_posts WHERE campaign_id = ?').run(c.id);
-    }
-    db.prepare('DELETE FROM campaigns WHERE client_id = ?').run(id);
-    db.prepare('DELETE FROM clients WHERE id = ?').run(id);
-  });
-  deleteTx();
+export async function deleteClient(db, id) {
+  // Get campaign IDs for this client
+  const campaignsResult = await db.execute({ sql: 'SELECT id FROM campaigns WHERE client_id = ?', args: [id] });
+  const stmts = [];
+  for (const c of campaignsResult.rows) {
+    stmts.push({ sql: 'DELETE FROM campaign_posts WHERE campaign_id = ?', args: [c.id] });
+  }
+  stmts.push({ sql: 'DELETE FROM campaigns WHERE client_id = ?', args: [id] });
+  stmts.push({ sql: 'DELETE FROM clients WHERE id = ?', args: [id] });
+  await db.batch(stmts);
 }
 
 // ── Campaigns ─────────────────────────────────────────────────────
 
-export function createCampaign(db, data) {
+export async function createCampaign(db, data) {
   const fields = ['client_id', ...Object.keys(data).filter(k => CAMPAIGN_FIELDS.has(k))];
-  // Ensure client_id is included
   const uniqueFields = [...new Set(fields)];
   const cols = uniqueFields.join(', ');
   const placeholders = uniqueFields.map(() => '?').join(', ');
   const values = uniqueFields.map(k => data[k]);
 
-  const stmt = db.prepare(`INSERT INTO campaigns (${cols}) VALUES (${placeholders})`);
-  const result = stmt.run(...values);
+  const result = await db.execute({ sql: `INSERT INTO campaigns (${cols}) VALUES (${placeholders})`, args: values });
   return result.lastInsertRowid;
 }
 
-export function getCampaign(db, id) {
-  return db.prepare('SELECT * FROM campaigns WHERE id = ?').get(id);
+export async function getCampaign(db, id) {
+  const result = await db.execute({ sql: 'SELECT * FROM campaigns WHERE id = ?', args: [id] });
+  return result.rows[0] || null;
 }
 
-export function listCampaigns(db, clientId) {
-  return db.prepare('SELECT * FROM campaigns WHERE client_id = ? ORDER BY created_at DESC').all(clientId);
+export async function listCampaigns(db, clientId) {
+  const result = await db.execute({ sql: 'SELECT * FROM campaigns WHERE client_id = ? ORDER BY created_at DESC', args: [clientId] });
+  return result.rows;
 }
 
-export function updateCampaignStatus(db, id, status, currentStep) {
-  db.prepare('UPDATE campaigns SET status = ?, current_step = ? WHERE id = ?').run(status, currentStep, id);
+export async function updateCampaignStatus(db, id, status, currentStep) {
+  await db.execute({ sql: 'UPDATE campaigns SET status = ?, current_step = ? WHERE id = ?', args: [status, currentStep, id] });
 }
 
-export function updateCampaignField(db, id, field, value) {
+export async function updateCampaignField(db, id, field, value) {
   if (!CAMPAIGN_FIELDS.has(field)) {
     throw new Error(`Invalid campaign field: ${field}`);
   }
-  db.prepare(`UPDATE campaigns SET ${field} = ? WHERE id = ?`).run(value, id);
+  await db.execute({ sql: `UPDATE campaigns SET ${field} = ? WHERE id = ?`, args: [value, id] });
 }
 
-export function deleteCampaign(db, id) {
-  const deleteTx = db.transaction(() => {
-    db.prepare('DELETE FROM campaign_posts WHERE campaign_id = ?').run(id);
-    db.prepare('DELETE FROM campaigns WHERE id = ?').run(id);
-  });
-  deleteTx();
+export async function deleteCampaign(db, id) {
+  await db.batch([
+    { sql: 'DELETE FROM campaign_posts WHERE campaign_id = ?', args: [id] },
+    { sql: 'DELETE FROM campaigns WHERE id = ?', args: [id] },
+  ]);
 }
 
 // ── Campaign Posts ────────────────────────────────────────────────
 
-export function createCampaignPost(db, data) {
+export async function createCampaignPost(db, data) {
   const fields = ['campaign_id', ...Object.keys(data).filter(k => POST_FIELDS.has(k))];
   const uniqueFields = [...new Set(fields)];
   const cols = uniqueFields.join(', ');
   const placeholders = uniqueFields.map(() => '?').join(', ');
   const values = uniqueFields.map(k => data[k]);
 
-  const stmt = db.prepare(`INSERT INTO campaign_posts (${cols}) VALUES (${placeholders})`);
-  const result = stmt.run(...values);
+  const result = await db.execute({ sql: `INSERT INTO campaign_posts (${cols}) VALUES (${placeholders})`, args: values });
   return result.lastInsertRowid;
 }
 
-export function bulkCreateCampaignPosts(db, posts) {
-  const insertMany = db.transaction(() => {
-    for (const data of posts) {
-      createCampaignPost(db, data);
-    }
-  });
-  insertMany();
+export async function bulkCreateCampaignPosts(db, posts) {
+  const stmts = [];
+  for (const data of posts) {
+    const fields = ['campaign_id', ...Object.keys(data).filter(k => POST_FIELDS.has(k))];
+    const uniqueFields = [...new Set(fields)];
+    const cols = uniqueFields.join(', ');
+    const placeholders = uniqueFields.map(() => '?').join(', ');
+    const values = uniqueFields.map(k => data[k]);
+    stmts.push({ sql: `INSERT INTO campaign_posts (${cols}) VALUES (${placeholders})`, args: values });
+  }
+  await db.batch(stmts);
 }
 
-export function listCampaignPosts(db, campaignId) {
-  return db.prepare('SELECT * FROM campaign_posts WHERE campaign_id = ? ORDER BY day_number ASC').all(campaignId);
+export async function listCampaignPosts(db, campaignId) {
+  const result = await db.execute({ sql: 'SELECT * FROM campaign_posts WHERE campaign_id = ? ORDER BY day_number ASC', args: [campaignId] });
+  return result.rows;
 }
 
-export function updateCampaignPost(db, id, data) {
+export async function updateCampaignPost(db, id, data) {
   const fields = Object.keys(data).filter(k => POST_FIELDS.has(k));
   if (fields.length === 0) return;
   const sets = fields.map(k => `${k} = ?`).join(', ');
   const values = fields.map(k => data[k]);
-  db.prepare(`UPDATE campaign_posts SET ${sets} WHERE id = ?`).run(...values, id);
+  await db.execute({ sql: `UPDATE campaign_posts SET ${sets} WHERE id = ?`, args: [...values, id] });
 }

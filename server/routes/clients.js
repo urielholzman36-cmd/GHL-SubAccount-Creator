@@ -32,25 +32,26 @@ export function createClientsRouter(db) {
   const router = Router();
 
   // GET /builds-available — list builds that can be imported as clients
-  router.get('/builds-available', (req, res) => {
+  router.get('/builds-available', async (req, res) => {
     try {
-      const builds = db.prepare(`
+      const result = await db.execute(`
         SELECT id, business_name, industry, industry_text, city, state,
                target_audience, business_description, logo_path
         FROM builds ORDER BY created_at DESC
-      `).all();
-      res.json(builds);
+      `);
+      res.json(result.rows);
     } catch (err) {
       res.status(500).json({ error: 'Failed to list builds', details: err.message });
     }
   });
 
   // POST /import-from-build — create a client from an existing build record
-  router.post('/import-from-build', (req, res) => {
+  router.post('/import-from-build', async (req, res) => {
     const { build_id } = req.body;
     if (!build_id) return res.status(400).json({ error: 'build_id required' });
 
-    const build = db.prepare('SELECT * FROM builds WHERE id = ?').get(build_id);
+    const buildResult = await db.execute({ sql: 'SELECT * FROM builds WHERE id = ?', args: [build_id] });
+    const build = buildResult.rows[0];
     if (!build) return res.status(404).json({ error: 'Build not found' });
 
     const location = [build.city, build.state].filter(Boolean).join(', ');
@@ -66,7 +67,7 @@ export function createClientsRouter(db) {
     };
 
     try {
-      const id = socialQueries.createClient(db, clientData);
+      const id = await socialQueries.createClient(db, clientData);
       res.status(201).json({ id });
     } catch (err) {
       res.status(500).json({ error: 'Failed to import client', details: err.message });
@@ -74,9 +75,9 @@ export function createClientsRouter(db) {
   });
 
   // GET / — list all clients
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     try {
-      const clients = socialQueries.listClients(db);
+      const clients = await socialQueries.listClients(db);
       res.json(clients);
     } catch (err) {
       res.status(500).json({ error: 'Failed to list clients', details: err.message });
@@ -84,15 +85,15 @@ export function createClientsRouter(db) {
   });
 
   // GET /:id — get single client
-  router.get('/:id', (req, res) => {
-    const client = socialQueries.getClient(db, req.params.id);
+  router.get('/:id', async (req, res) => {
+    const client = await socialQueries.getClient(db, req.params.id);
     if (!client) return res.status(404).json({ error: 'Client not found' });
     res.json(client);
   });
 
   // POST / — create client (multipart with optional logo)
   router.post('/', (req, res) => {
-    uploadLogo(req, res, (uploadErr) => {
+    uploadLogo(req, res, async (uploadErr) => {
       if (uploadErr) {
         return res.status(400).json({ error: 'Logo upload failed', details: uploadErr.message });
       }
@@ -104,7 +105,7 @@ export function createClientsRouter(db) {
       }
 
       try {
-        const id = socialQueries.createClient(db, body);
+        const id = await socialQueries.createClient(db, body);
         res.status(201).json({ id });
       } catch (err) {
         res.status(500).json({ error: 'Failed to create client', details: err.message });
@@ -113,12 +114,12 @@ export function createClientsRouter(db) {
   });
 
   // PUT /:id — update client (multipart with optional logo)
-  router.put('/:id', (req, res) => {
+  router.put('/:id', async (req, res) => {
     const { id } = req.params;
-    const existing = socialQueries.getClient(db, id);
+    const existing = await socialQueries.getClient(db, id);
     if (!existing) return res.status(404).json({ error: 'Client not found' });
 
-    uploadLogo(req, res, (uploadErr) => {
+    uploadLogo(req, res, async (uploadErr) => {
       if (uploadErr) {
         return res.status(400).json({ error: 'Logo upload failed', details: uploadErr.message });
       }
@@ -135,7 +136,7 @@ export function createClientsRouter(db) {
       }
 
       try {
-        socialQueries.updateClient(db, id, body);
+        await socialQueries.updateClient(db, id, body);
         res.json({ ok: true });
       } catch (err) {
         res.status(500).json({ error: 'Failed to update client', details: err.message });
@@ -144,9 +145,9 @@ export function createClientsRouter(db) {
   });
 
   // DELETE /:id — delete client and all its campaigns
-  router.delete('/:id', (req, res) => {
+  router.delete('/:id', async (req, res) => {
     const { id } = req.params;
-    const existing = socialQueries.getClient(db, id);
+    const existing = await socialQueries.getClient(db, id);
     if (!existing) return res.status(404).json({ error: 'Client not found' });
 
     // Delete logo file if exists
@@ -156,7 +157,7 @@ export function createClientsRouter(db) {
     }
 
     try {
-      socialQueries.deleteClient(db, id);
+      await socialQueries.deleteClient(db, id);
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: 'Failed to delete client', details: err.message });
