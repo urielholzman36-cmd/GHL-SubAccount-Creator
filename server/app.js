@@ -27,34 +27,47 @@ const db = createClient({
   authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
-await initializeDb(db);
+// ─── Lazy initialization (runs once on first request) ────────────────────────
+let _initDone = false;
+async function ensureInit() {
+  if (_initDone) return;
+  _initDone = true;
 
-// ─── First-boot: seed default users if users table is empty ─────────────────
-const userCountResult = await db.execute('SELECT COUNT(*) as count FROM users');
-const userCount = userCountResult.rows[0].count;
-if (userCount === 0) {
-  const hash1 = await bcrypt.hash('Ur25072002', 12);
-  await db.execute({ sql: 'INSERT INTO users (username, password_hash, display_name, is_admin) VALUES (?, ?, ?, ?)', args: ['uriel_holzman', hash1, 'Uriel', 1] });
+  await initializeDb(db);
 
-  const hash2 = await bcrypt.hash('Hsp2026', 12);
-  await db.execute({ sql: 'INSERT INTO users (username, password_hash, display_name, is_admin) VALUES (?, ?, ?, ?)', args: ['modi', hash2, 'Modi', 0] });
+  // Seed default users on first boot
+  const userCountResult = await db.execute('SELECT COUNT(*) as count FROM users');
+  const userCount = userCountResult.rows[0].count;
+  if (userCount === 0) {
+    const hash1 = await bcrypt.hash('Ur25072002', 12);
+    await db.execute({ sql: 'INSERT INTO users (username, password_hash, display_name, is_admin) VALUES (?, ?, ?, ?)', args: ['uriel_holzman', hash1, 'Uriel', 1] });
 
-  console.log('Default users seeded (first boot).');
+    const hash2 = await bcrypt.hash('Hsp2026', 12);
+    await db.execute({ sql: 'INSERT INTO users (username, password_hash, display_name, is_admin) VALUES (?, ?, ?, ?)', args: ['modi', hash2, 'Modi', 0] });
+
+    console.log('Default users seeded (first boot).');
+  }
 }
 
-// ─── Auto-generate SESSION_SECRET if not set ─────────────────────────────────
-let sessionSecret = process.env.SESSION_SECRET || await getSetting(db, 'session_secret');
-if (!sessionSecret) {
-  const { randomBytes } = await import('crypto');
-  sessionSecret = randomBytes(32).toString('hex');
-  await setSetting(db, 'session_secret', sessionSecret);
-}
+// ─── Session secret ──────────────────────────────────────────────────────────
+const sessionSecret = process.env.SESSION_SECRET || 'vo360-fallback-secret-change-me';
 
 // ─── Express app ─────────────────────────────────────────────────────────────
 const isVercel = !!process.env.VERCEL;
 const app = express();
 
 app.use(express.json());
+
+// Run DB init before any route handler
+app.use(async (req, res, next) => {
+  try {
+    await ensureInit();
+    next();
+  } catch (err) {
+    console.error('DB init failed:', err);
+    res.status(500).json({ error: 'Database initialization failed' });
+  }
+});
 
 app.use(
   cookieSession({
