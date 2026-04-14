@@ -21,14 +21,29 @@ import { createSettingsRouter } from './routes/settings.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
 
-// ─── Database setup ──────────────────────────────────────────────────────────
-const db = createClient({
-  url: process.env.TURSO_CONNECTION_URL,
-  authToken: process.env.TURSO_AUTH_TOKEN,
+// ─── Database setup (lazy — created on first request) ────────────────────────
+let _realDb = null;
+let _initDone = false;
+
+function getRealDb() {
+  if (!_realDb) {
+    _realDb = createClient({
+      url: process.env.TURSO_CONNECTION_URL,
+      authToken: process.env.TURSO_AUTH_TOKEN,
+    });
+  }
+  return _realDb;
+}
+
+// Proxy that forwards all method calls to the real client (created lazily)
+const db = new Proxy({}, {
+  get(_, prop) {
+    const real = getRealDb();
+    const val = real[prop];
+    return typeof val === 'function' ? val.bind(real) : val;
+  },
 });
 
-// ─── Lazy initialization (runs once on first request) ────────────────────────
-let _initDone = false;
 async function ensureInit() {
   if (_initDone) return;
   _initDone = true;
