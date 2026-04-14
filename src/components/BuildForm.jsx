@@ -482,8 +482,8 @@ export default function BuildForm({ onBuildStarted }) {
           </div>
         </CollapsibleSection>
 
-        {/* Section 3: Account Owner */}
-        <CollapsibleSection title="Account Owner">
+        {/* Section 3: Company Owner */}
+        <CollapsibleSection title="Company Owner">
           <div className="grid grid-cols-2 gap-4">
             <Field label="First Name" error={errors.firstName}>
               <input
