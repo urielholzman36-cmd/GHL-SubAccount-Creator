@@ -156,6 +156,7 @@ export default function BuildDetailRow({ buildId }) {
               if (res.ok) setData(await res.json());
             }}
             resuming={false}
+            buildId={buildId}
           />
         )}
         {isPaused && !isAwaitingWebsite && (

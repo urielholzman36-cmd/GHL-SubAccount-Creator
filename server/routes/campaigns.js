@@ -90,6 +90,51 @@ export function createCampaignsRouter(db) {
     res.send(csv);
   });
 
+  // GET /:id/images-zip — download all campaign images as ZIP
+  router.get('/:id/images-zip', async (req, res) => {
+    const { default: archiver } = await import('archiver');
+    const fs = await import('fs');
+    const path = await import('path');
+
+    const campaign = await socialQueries.getCampaign(db, req.params.id);
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+
+    const client = await socialQueries.getClient(db, campaign.client_id);
+    const posts = await socialQueries.listCampaignPosts(db, campaign.id);
+    const imagesFolder = campaign.images_folder;
+
+    if (!imagesFolder || !fs.existsSync(imagesFolder)) {
+      return res.status(404).json({ error: 'No images folder found' });
+    }
+
+    const clientName = (client?.name || 'campaign').replace(/[^a-zA-Z0-9]/g, '-');
+    const zipName = `${clientName}-${campaign.month || 'images'}.zip`;
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
+
+    const archive = archiver('zip', { zlib: { level: 5 } });
+    archive.pipe(res);
+
+    // Add each post's images organized by folder
+    for (const post of posts) {
+      const typeName = post.post_type === 'carousel' ? 'Carousel'
+        : post.post_type === 'before_after' ? 'Before_After'
+        : 'Single';
+      const folderName = `Post_${post.day_number}_${typeName}`;
+      const folderPath = path.join(imagesFolder, folderName);
+
+      if (fs.existsSync(folderPath)) {
+        const files = fs.readdirSync(folderPath).filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f));
+        for (const file of files) {
+          archive.file(path.join(folderPath, file), { name: `${folderName}/${file}` });
+        }
+      }
+    }
+
+    await archive.finalize();
+  });
+
   // GET /:id — get single campaign with posts
   router.get('/:id', async (req, res) => {
     const campaign = await socialQueries.getCampaign(db, req.params.id);

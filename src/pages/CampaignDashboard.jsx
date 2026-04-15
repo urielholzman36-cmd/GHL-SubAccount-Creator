@@ -146,7 +146,29 @@ export default function CampaignDashboard() {
             {campaign?.theme ? ` — ${campaign.theme}` : ''}
           </p>
         </div>
-        <StepStatusBadge status={effectiveStatus === 'complete' ? 'completed' : effectiveStatus} />
+        <div className="flex items-center gap-2">
+          <a
+            href={`/api/campaigns/${id}/images-zip`}
+            className="text-xs font-medium text-white/30 border border-white/10 px-3 py-1.5 rounded-lg hover:text-white/50 hover:bg-white/5 transition"
+          >
+            Download Images
+          </a>
+          <button
+            onClick={async () => {
+              const url = `${window.location.origin}/preview/${id}`;
+              try {
+                await navigator.clipboard.writeText(url);
+                alert('Preview link copied!');
+              } catch {
+                prompt('Copy this link:', url);
+              }
+            }}
+            className="text-xs font-medium text-white/30 border border-white/10 px-3 py-1.5 rounded-lg hover:text-white/50 hover:bg-white/5 transition"
+          >
+            Share Preview
+          </button>
+          <StepStatusBadge status={effectiveStatus === 'complete' ? 'completed' : effectiveStatus} />
+        </div>
       </div>
 
       {/* Error banner */}
@@ -338,7 +360,12 @@ export default function CampaignDashboard() {
         <StrategyReview
           campaignId={id}
           posts={campaign.posts}
-          onApprove={() => reconnect()}
+          onApprove={() => {
+            setTimeout(() => {
+              fetchCampaign();
+              reconnect();
+            }, 1000);
+          }}
         />
       )}
 
@@ -348,7 +375,12 @@ export default function CampaignDashboard() {
           campaignId={id}
           posts={campaign.posts}
           clientName={campaign.client_name}
-          onExport={() => {}}
+          onExport={() => {
+            setTimeout(() => {
+              fetchCampaign();
+              reconnect();
+            }, 1000);
+          }}
         />
       )}
     </div>

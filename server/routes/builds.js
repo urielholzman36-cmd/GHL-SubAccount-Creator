@@ -370,6 +370,38 @@ export function createBuildsRouter(db) {
     res.status(202).json({ ok: true, id });
   });
 
+  // POST /:id/skip-website — skip website setup steps and complete the build
+  router.post('/:id/skip-website', async (req, res) => {
+    const { id } = req.params;
+    const build = await queries.getBuildById(db, id);
+    if (!build) return res.status(404).json({ error: 'Build not found' });
+    if (build.status !== 'paused') {
+      return res.status(400).json({ error: 'Build is not paused' });
+    }
+
+    // Mark all remaining steps (3-10) as skipped
+    const steps = await queries.getBuildSteps(db, id);
+    for (const step of steps) {
+      if (step.step_number >= 3 && step.status !== 'completed') {
+        await db.execute({
+          sql: `UPDATE build_steps SET status = 'skipped', completed_at = datetime('now') WHERE build_id = ? AND step_number = ?`,
+          args: [id, step.step_number],
+        });
+        broadcastToBuild(id, 'step-update', {
+          step: step.step_number,
+          status: 'skipped',
+        });
+      }
+    }
+
+    // Clear pause state and mark build as completed
+    await queries.clearPauseState(db, id);
+    await queries.updateBuildStatus(db, id, 'completed', null);
+    broadcastToBuild(id, 'build-complete', { id });
+
+    res.json({ ok: true, id, skipped: true });
+  });
+
   // DELETE /:id — delete a build and its steps
   router.delete('/:id', async (req, res) => {
     const { id } = req.params;

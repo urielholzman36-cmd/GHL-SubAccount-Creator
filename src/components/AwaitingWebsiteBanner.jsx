@@ -1,11 +1,12 @@
 import { useState } from 'react';
 
-export default function AwaitingWebsiteBanner({ pauseInfo, onResume, resuming }) {
+export default function AwaitingWebsiteBanner({ pauseInfo, onResume, resuming, buildId }) {
   const [wpUrl, setWpUrl] = useState('');
   const [wpUsername, setWpUsername] = useState('');
   const [wpPassword, setWpPassword] = useState('');
   const [copied, setCopied] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
+  const [skipping, setSkipping] = useState(false);
 
   const prompt = pauseInfo?.context?.prompt || '';
   const canSubmit = wpUrl.trim() && wpUsername.trim() && wpPassword.trim() && !resuming;
@@ -139,14 +140,34 @@ export default function AwaitingWebsiteBanner({ pauseInfo, onResume, resuming })
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={submit}
-              disabled={!canSubmit}
-              className="mt-4 text-sm font-semibold text-white bg-brand-gradient hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed px-6 py-2.5 rounded-lg shadow-lg shadow-magenta/20 transition"
-            >
-              {resuming ? 'Resuming…' : 'Continue Onboarding'}
-            </button>
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={submit}
+                disabled={!canSubmit}
+                className="text-sm font-semibold text-white bg-brand-gradient hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed px-6 py-2.5 rounded-lg shadow-lg shadow-magenta/20 transition"
+              >
+                {resuming ? 'Resuming…' : 'Continue Onboarding'}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setSkipping(true);
+                  try {
+                    const res = await fetch(`/api/builds/${buildId}/skip-website`, { method: 'POST' });
+                    if (res.ok) {
+                      window.location.reload();
+                    }
+                  } catch {}
+                  setSkipping(false);
+                }}
+                disabled={skipping || resuming}
+                className="text-sm font-medium text-white/40 border border-white/10 px-5 py-2.5 rounded-lg hover:bg-white/5 hover:text-white/60 disabled:opacity-30 transition"
+              >
+                {skipping ? 'Skipping…' : 'Skip Website Setup'}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-white/15">Skip if this client already has a website or doesn't need one built.</p>
           </div>
         </div>
       </div>

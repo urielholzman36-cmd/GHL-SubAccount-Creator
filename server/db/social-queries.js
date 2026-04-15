@@ -39,7 +39,7 @@ export async function createClient(db, data) {
   const values = fields.map(k => data[k]);
 
   const result = await db.execute({ sql: `INSERT INTO clients (${cols}) VALUES (${placeholders})`, args: values });
-  return result.lastInsertRowid;
+  return Number(result.lastInsertRowid);
 }
 
 export async function getClient(db, id) {
@@ -82,7 +82,7 @@ export async function createCampaign(db, data) {
   const values = uniqueFields.map(k => data[k]);
 
   const result = await db.execute({ sql: `INSERT INTO campaigns (${cols}) VALUES (${placeholders})`, args: values });
-  return result.lastInsertRowid;
+  return Number(result.lastInsertRowid);
 }
 
 export async function getCampaign(db, id) {
@@ -123,7 +123,7 @@ export async function createCampaignPost(db, data) {
   const values = uniqueFields.map(k => data[k]);
 
   const result = await db.execute({ sql: `INSERT INTO campaign_posts (${cols}) VALUES (${placeholders})`, args: values });
-  return result.lastInsertRowid;
+  return Number(result.lastInsertRowid);
 }
 
 export async function bulkCreateCampaignPosts(db, posts) {

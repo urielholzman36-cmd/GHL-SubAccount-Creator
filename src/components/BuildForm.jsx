@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import CollapsibleSection from './CollapsibleSection';
 
 const TIMEZONES = [
@@ -103,6 +103,56 @@ export default function BuildForm({ onBuildStarted }) {
   const [globalError, setGlobalError] = useState('');
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
+  const [existingClients, setExistingClients] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
+
+  // Load existing clients for the selector
+  useEffect(() => {
+    fetch('/api/clients')
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setExistingClients(data); })
+      .catch(() => {});
+  }, []);
+
+  async function handleClientSelect(clientId) {
+    setSelectedClientId(clientId);
+    if (!clientId) return;
+    try {
+      const res = await fetch(`/api/clients/${clientId}`);
+      const client = await res.json();
+      if (!client || client.error) return;
+      setForm(prev => ({
+        ...prev,
+        businessName: client.name || '',
+        businessEmail: client.email || '',
+        businessPhone: client.phone || '',
+        address: client.address || '',
+        city: client.city || '',
+        state: client.state || '',
+        zip: client.zip || '',
+        country: client.country || 'US',
+        industry: 'general',
+        timezone: client.timezone || '',
+        websiteUrl: client.website || '',
+        industryText: client.industry || '',
+        businessDescription: client.brand_description || '',
+        targetAudience: client.target_audience || '',
+      }));
+      // Split contact name into first/last if available
+      if (client.contact_name) {
+        const parts = client.contact_name.trim().split(/\s+/);
+        setForm(prev => ({
+          ...prev,
+          firstName: parts[0] || '',
+          lastName: parts.slice(1).join(' ') || '',
+        }));
+      }
+      // Show existing logo if available
+      if (client.logo_path) {
+        setLogoPreview(`/${client.logo_path}`);
+      }
+    } catch {}
+  }
 
   async function handleLogoChange(e) {
     const file = e.target.files?.[0];
@@ -238,6 +288,26 @@ export default function BuildForm({ onBuildStarted }) {
   return (
     <form onSubmit={handleSubmit} noValidate>
       <div className="glass rounded-xl p-6 space-y-8">
+
+        {/* Import from existing client */}
+        {existingClients.length > 0 && (
+          <div className="pb-4 border-b border-white/5">
+            <label className={labelClass}>Import from existing client</label>
+            <select
+              value={selectedClientId}
+              onChange={e => handleClientSelect(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">— Start fresh (blank form) —</option>
+              {existingClients.map(c => (
+                <option key={c.id} value={c.id}>{c.name}{c.industry ? ` — ${c.industry}` : ''}</option>
+              ))}
+            </select>
+            {selectedClientId && (
+              <p className="mt-1.5 text-xs text-[#2dd4bf]/70">Fields auto-filled from client record. You still need to upload a logo and fill any missing fields.</p>
+            )}
+          </div>
+        )}
 
         {/* Section 1: Business Information */}
         <CollapsibleSection title="Business Information" defaultOpen={true}>

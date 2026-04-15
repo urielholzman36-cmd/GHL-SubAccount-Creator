@@ -265,8 +265,12 @@ export class SocialRunner {
     }
 
     // Live mode: spawn Krea
+    const totalPrompts = cleanedPosts.reduce((acc, p) => acc + (p.slide_count || 1), 0);
     await new Promise((resolve, reject) => {
       runKreaGeneration(client.name, csvPath, campaignDir, {
+        onProgress: ({ current, total }) => {
+          this.emit({ type: 'step-progress', step: 5, current, total: total || totalPrompts, message: `Generating image ${current}/${total || totalPrompts}` });
+        },
         onComplete: async (contentDir) => {
           await updateCampaignField(this.db, campaignId, 'images_folder', contentDir);
           resolve();
@@ -311,9 +315,12 @@ export class SocialRunner {
       logoBuffer = fs.readFileSync(path.resolve(projectRoot, client.logo_path));
     }
 
-    for (const post of posts) {
+    for (let postIdx = 0; postIdx < posts.length; postIdx++) {
+      const post = posts[postIdx];
       const files = imagePaths[post.day_number] || [];
       const urls = [];
+
+      this.emit({ type: 'step-progress', step: 6, current: postIdx + 1, total: posts.length, message: `Watermarking & uploading post ${postIdx + 1}/${posts.length}` });
 
       for (let i = 0; i < files.length; i++) {
         let imageBuffer = fs.readFileSync(files[i]);

@@ -14,6 +14,7 @@ import CampaignDashboard from './pages/CampaignDashboard';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
 import ComingSoon from './pages/ComingSoon';
+import CampaignPreview from './pages/CampaignPreview';
 import Sidebar from './components/Sidebar';
 import Spinner from './components/Spinner';
 
@@ -77,6 +78,7 @@ export default function App() {
       <ToastProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/preview/:id" element={<CampaignPreview />} />
           <Route path="/*" element={<ProtectedLayout />} />
         </Routes>
       </ToastProvider>

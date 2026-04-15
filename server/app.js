@@ -100,7 +100,33 @@ if (isVercel) {
   app.set('trust proxy', 1);
 }
 
-// ─── Routes ──────────────────────────────────────────────────────────────────
+// ─── Public routes (no auth) ─────────────────────────────────────────────────
+app.get('/api/preview/:id', async (req, res) => {
+  const { getCampaign, getClient, listCampaignPosts } = await import('./db/social-queries.js');
+  const campaign = await getCampaign(db, req.params.id);
+  if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+  const client = await getClient(db, campaign.client_id);
+  const posts = await listCampaignPosts(db, campaign.id);
+  res.json({
+    client_name: client?.name || 'Client',
+    client_logo: client?.logo_path || null,
+    month: campaign.month,
+    theme: campaign.theme,
+    posts: posts.map(p => ({
+      day_number: p.day_number,
+      post_date: p.post_date,
+      pillar: p.pillar,
+      post_type: p.post_type,
+      concept: p.concept,
+      caption: p.caption,
+      hashtags: p.hashtags,
+      image_urls: p.image_urls,
+      slide_count: p.slide_count,
+    })),
+  });
+});
+
+// ─── Authenticated routes ────────────────────────────────────────────────────
 app.use('/api/auth', createAuthRouter(db));
 app.use('/api/builds', requireAuth, createBuildsRouter(db));
 app.use('/api/stats', requireAuth, createStatsRouter(db));

@@ -9,6 +9,7 @@ const STATUS_CONFIG = {
   warning:   { bg: 'bg-amber-500/15', border: 'border-amber-500/40', text: 'text-amber-400', label: 'Warning', glow: 'glow-amber' },
   paused:    { bg: 'bg-amber-500/15', border: 'border-amber-500/40', text: 'text-amber-400', label: 'Waiting', glow: 'glow-amber' },
   failed:    { bg: 'bg-red-500/15', border: 'border-red-500/40', text: 'text-red-400', label: 'Failed', glow: 'glow-red' },
+  skipped:   { bg: 'bg-white/5', border: 'border-white/10', text: 'text-white/30', label: 'Skipped', glow: '' },
 };
 
 function StepIcon({ status }) {
@@ -64,7 +65,7 @@ export default function ProgressTracker({ buildId, onRetry }) {
     }
   }, [buildStatus, buildId]);
 
-  const completedCount = steps.filter((s) => s.status === 'completed' || s.status === 'warning').length;
+  const completedCount = steps.filter((s) => s.status === 'completed' || s.status === 'warning' || s.status === 'skipped').length;
   const progressPct = Math.round((completedCount / steps.length) * 100);
 
   async function handleRetry(stepNumber) {
@@ -171,6 +172,7 @@ export default function ProgressTracker({ buildId, onRetry }) {
           pauseInfo={pauseInfo}
           onResume={handleResume}
           resuming={resuming}
+          buildId={buildId}
         />
       )}
 
