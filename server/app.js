@@ -17,6 +17,7 @@ import { createStatsRouter } from './routes/stats.js';
 import { createClientsRouter } from './routes/clients.js';
 import { createCampaignsRouter } from './routes/campaigns.js';
 import { createSettingsRouter } from './routes/settings.js';
+import { createHealthRouter } from './modules/health/routes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
@@ -133,6 +134,7 @@ app.use('/api/stats', requireAuth, createStatsRouter(db));
 app.use('/api/clients', requireAuth, createClientsRouter(db));
 app.use('/api/campaigns', requireAuth, createCampaignsRouter(db));
 app.use('/api/settings', requireAuth, createSettingsRouter());
+app.use('/api/health', requireAuth, createHealthRouter(db));
 
 // ─── Static files (production) ───────────────────────────────────────────────
 const distPath = join(projectRoot, 'dist');

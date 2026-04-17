@@ -11,9 +11,12 @@ import SocialPlanner from './pages/SocialPlanner';
 import ClientProfile from './pages/ClientProfile';
 import ClientCampaigns from './pages/ClientCampaigns';
 import CampaignDashboard from './pages/CampaignDashboard';
+import ManusImport from './pages/ManusImport';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
 import ComingSoon from './pages/ComingSoon';
+import HealthDashboard from './pages/health/HealthDashboard';
+import ClientHealth from './pages/health/ClientHealth';
 import CampaignPreview from './pages/CampaignPreview';
 import Sidebar from './components/Sidebar';
 import Spinner from './components/Spinner';
@@ -55,7 +58,9 @@ function ProtectedLayout() {
             <Route path="/social/client/:id" element={<ClientProfile />} />
             <Route path="/social/client/:id/campaigns" element={<ClientCampaigns />} />
             <Route path="/social/campaign/:id" element={<CampaignDashboard />} />
-            <Route path="/health" element={<ComingSoon />} />
+            <Route path="/social/campaign/:id/import" element={<ManusImport />} />
+            <Route path="/health" element={<HealthDashboard />} />
+            <Route path="/health/:id" element={<ClientHealth />} />
             <Route path="/reports" element={<ComingSoon />} />
 
             {/* Sales */}

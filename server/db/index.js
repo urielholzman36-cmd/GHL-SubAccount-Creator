@@ -116,6 +116,13 @@ export async function initializeDb(db) {
     ['active', 'INTEGER DEFAULT 1'],
     ['onboarding_status', "TEXT DEFAULT 'pending'"],
     ['updated_at', "DATETIME DEFAULT (datetime('now'))"],
+    ['ghl_api_key_encrypted', 'TEXT'],
+    ['brand_personality', 'TEXT'],
+    ['brand_mood_description', 'TEXT'],
+    ['industry_cues_json', 'TEXT'],
+    ['recommended_surface_style', 'TEXT'],
+    ['client_brief', 'TEXT'],
+    ['client_brief_generated_at', 'DATETIME'],
   ];
   const ccColsResult = await db.execute("PRAGMA table_info(clients)");
   const ccExisting = ccColsResult.rows.map(c => c.name);
@@ -145,4 +152,57 @@ export async function initializeDb(db) {
 
   // M3 Social Planner tables
   await initializeSocialTables(db);
+
+  // Campaign-level content strategy columns (additive)
+  const campColsResult = await db.execute("PRAGMA table_info(campaigns)");
+  const campExisting = campColsResult.rows.map(c => c.name);
+  const campAdditions = [
+    ['content_pillars', 'TEXT'],
+    ['hashtag_bank', 'TEXT'],
+    ['cta_style', 'TEXT'],
+    ['platforms', 'TEXT'],
+    ['monthly_recap', 'TEXT'],
+    ['monthly_recap_generated_at', 'DATETIME'],
+    ['recap_seed', 'TEXT'],
+  ];
+  for (const [name, type] of campAdditions) {
+    if (!campExisting.includes(name)) {
+      await db.execute(`ALTER TABLE campaigns ADD COLUMN ${name} ${type}`);
+    }
+  }
+
+  // M1 Health Monitor tables
+  await db.executeMultiple(`
+    CREATE TABLE IF NOT EXISTS health_scores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      score INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      metric_new_leads INTEGER DEFAULT 0,
+      metric_pipeline_movement INTEGER DEFAULT 0,
+      metric_conversation_activity INTEGER DEFAULT 0,
+      metric_response_time INTEGER DEFAULT 0,
+      metric_appointments INTEGER DEFAULT 0,
+      metric_reviews INTEGER DEFAULT 0,
+      raw_data TEXT,
+      calculated_at DATETIME DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_health_client_date
+      ON health_scores(client_id, calculated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS alerts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL REFERENCES clients(id),
+      rule TEXT NOT NULL,
+      message TEXT NOT NULL,
+      score_at_alert INTEGER,
+      delivered_via TEXT,
+      acknowledged INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_alerts_client
+      ON alerts(client_id, created_at DESC);
+  `);
 }

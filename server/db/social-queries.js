@@ -14,6 +14,10 @@ const CLIENT_FIELDS = new Set([
   'contact_name', 'email', 'phone', 'address', 'city', 'state', 'zip',
   'country', 'location_id', 'brand_colors_json', 'design_style',
   'timezone', 'start_date', 'active', 'onboarding_status',
+  'ghl_api_key_encrypted',
+  'brand_personality', 'brand_mood_description', 'industry_cues_json',
+  'recommended_surface_style',
+  'client_brief', 'client_brief_generated_at',
 ]);
 
 // ── Campaign allowlist ────────────────────────────────────────────
@@ -21,6 +25,8 @@ const CAMPAIGN_FIELDS = new Set([
   'month', 'theme', 'start_date', 'status', 'research_brief',
   'manus_research', 'strategy_pack', 'prompts_csv_path',
   'images_folder', 'csv_path', 'current_step', 'post_count',
+  'content_pillars', 'hashtag_bank', 'cta_style', 'platforms',
+  'monthly_recap', 'monthly_recap_generated_at', 'recap_seed',
 ]);
 
 // ── Post allowlist ────────────────────────────────────────────────
@@ -61,13 +67,15 @@ export async function updateClient(db, id, data) {
 }
 
 export async function deleteClient(db, id) {
-  // Get campaign IDs for this client
+  // Cascade through every table that references clients(id)
   const campaignsResult = await db.execute({ sql: 'SELECT id FROM campaigns WHERE client_id = ?', args: [id] });
   const stmts = [];
   for (const c of campaignsResult.rows) {
     stmts.push({ sql: 'DELETE FROM campaign_posts WHERE campaign_id = ?', args: [c.id] });
   }
   stmts.push({ sql: 'DELETE FROM campaigns WHERE client_id = ?', args: [id] });
+  stmts.push({ sql: 'DELETE FROM health_scores WHERE client_id = ?', args: [id] });
+  stmts.push({ sql: 'DELETE FROM alerts WHERE client_id = ?', args: [id] });
   stmts.push({ sql: 'DELETE FROM clients WHERE id = ?', args: [id] });
   await db.batch(stmts);
 }

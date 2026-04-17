@@ -177,7 +177,7 @@ export class SocialRunner {
     const postCount = campaign.post_count || 30;
     const pack = await generateStrategyPack(
       client, campaign.month, campaign.theme, campaign.research_brief,
-      { apiKey: process.env.ANTHROPIC_API_KEY, postCount },
+      { apiKey: process.env.ANTHROPIC_API_KEY, postCount, campaign },
     );
 
     await updateCampaignField(this.db, campaignId, 'strategy_pack', JSON.stringify(pack));

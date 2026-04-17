@@ -32,6 +32,7 @@ export function buildPublicId(clientFolder, dayNumber, slideNumber) {
 
 /**
  * Compress an image buffer with Sharp and upload to Cloudinary.
+ * Used by the legacy Krea pipeline. Degrades quality + resizes to 1080 wide.
  * @param {Buffer} imageBuffer — raw image data
  * @param {string} publicId — Cloudinary public_id
  * @returns {Promise<string>} secure_url of the uploaded image
@@ -51,5 +52,26 @@ export async function compressAndUpload(imageBuffer, publicId) {
       },
     );
     stream.end(compressed);
+  });
+}
+
+/**
+ * Upload an image to Cloudinary AS-IS — no resize, no recompression, no
+ * watermark. Use this for Manus deliveries where the assets are already
+ * finished at the correct aspect ratio with the brand lockup baked in.
+ * @param {Buffer} imageBuffer — original image data (PNG / JPG / WebP etc.)
+ * @param {string} publicId — Cloudinary public_id
+ * @returns {Promise<string>} secure_url of the uploaded image
+ */
+export async function uploadOriginal(imageBuffer, publicId) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { public_id: publicId, resource_type: 'image', overwrite: true },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result.secure_url);
+      },
+    );
+    stream.end(imageBuffer);
   });
 }

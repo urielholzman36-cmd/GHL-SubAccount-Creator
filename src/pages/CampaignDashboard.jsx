@@ -51,6 +51,68 @@ export default function CampaignDashboard() {
   const [showManus, setShowManus] = useState(false);
   const [starting, setStarting] = useState(false);
 
+  // Campaign-level content strategy (separate plan per campaign)
+  const [contentPillars, setContentPillars] = useState(['PAIN', 'SOLUTION', 'AUTHORITY', 'PROOF', 'CTA']);
+  const [hashtagBank, setHashtagBank] = useState('');
+  const [ctaStyle, setCtaStyle] = useState('');
+  const [platformsSel, setPlatformsSel] = useState(['facebook', 'instagram']);
+  const [showStrategy, setShowStrategy] = useState(false);
+
+  // Monthly Recap (Mode B)
+  const [recapOpen, setRecapOpen] = useState(false);
+  const [recapBusy, setRecapBusy] = useState(false);
+  const [recapCopied, setRecapCopied] = useState(false);
+
+  async function handleGenerateRecap() {
+    const already = !!campaign?.monthly_recap;
+    if (already && !window.confirm('This month already has a recap. Regenerate and replace it?')) return;
+    setRecapBusy(true);
+    try {
+      const res = await fetch(`/api/campaigns/${id}/generate-recap`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(`Recap generation failed: ${data.details || data.error || res.status}`);
+        return;
+      }
+      setCampaign((c) => ({
+        ...c,
+        monthly_recap: data.recap,
+        monthly_recap_generated_at: data.generated_at,
+      }));
+      setRecapOpen(true);
+    } catch (err) {
+      alert(`Recap generation failed: ${err?.message || 'network error'}`);
+    } finally {
+      setRecapBusy(false);
+    }
+  }
+
+  async function handleCopyRecap() {
+    if (!campaign?.monthly_recap) return;
+    try {
+      await navigator.clipboard.writeText(campaign.monthly_recap);
+      setRecapCopied(true);
+      setTimeout(() => setRecapCopied(false), 1800);
+    } catch {
+      alert('Copy failed — open it and select manually.');
+    }
+  }
+
+  function parsePillars(raw) {
+    if (Array.isArray(raw)) return raw;
+    if (!raw) return null;
+    try { const v = JSON.parse(raw); return Array.isArray(v) ? v : null; } catch { return null; }
+  }
+  function parsePlatforms(raw) {
+    if (Array.isArray(raw)) return raw;
+    if (!raw) return null;
+    try { const v = JSON.parse(raw); return Array.isArray(v) ? v : null; } catch { return null; }
+  }
+  function hashtagsToSpace(raw) {
+    if (!raw) return '';
+    try { const v = JSON.parse(raw); return Array.isArray(v) ? v.join(' ') : String(raw); } catch { return String(raw); }
+  }
+
   function fetchCampaign() {
     return fetch(`/api/campaigns/${id}`)
       .then((r) => r.json())
@@ -60,6 +122,12 @@ export default function CampaignDashboard() {
         if (c.month) setMonth(c.month);
         if (c.theme) setTheme(c.theme);
         if (c.start_date) setStartDate(c.start_date);
+        const p = parsePillars(c.content_pillars);
+        if (p && p.length) setContentPillars(p);
+        setHashtagBank(hashtagsToSpace(c.hashtag_bank));
+        if (c.cta_style) setCtaStyle(c.cta_style);
+        const pl = parsePlatforms(c.platforms);
+        if (pl && pl.length) setPlatformsSel(pl);
         return c;
       })
       .catch(() => {})
@@ -81,7 +149,17 @@ export default function CampaignDashboard() {
       await fetch(`/api/campaigns/${id}/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month, theme, start_date: startDate, post_count: postCount, manus_research: manusResearch || null }),
+        body: JSON.stringify({
+          month,
+          theme,
+          start_date: startDate,
+          post_count: postCount,
+          manus_research: manusResearch || null,
+          content_pillars: JSON.stringify(contentPillars.filter(Boolean)),
+          hashtag_bank: JSON.stringify(hashtagBank.split(/\s+/).filter(Boolean)),
+          cta_style: ctaStyle,
+          platforms: JSON.stringify(platformsSel),
+        }),
       });
       reconnect();
     } catch {
@@ -89,6 +167,17 @@ export default function CampaignDashboard() {
     } finally {
       setStarting(false);
     }
+  }
+
+  function setPillarAt(idx, val) {
+    setContentPillars((prev) => {
+      const next = [...prev];
+      next[idx] = val;
+      return next;
+    });
+  }
+  function togglePlatform(p) {
+    setPlatformsSel((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]);
   }
 
   async function retryStep(step) {
@@ -105,11 +194,23 @@ export default function CampaignDashboard() {
   }
 
 
+  // Campaign-level statuses that mean a specific step is actively running.
+  // The social-runner writes these to DB when long-running work is in progress
+  // (research, strategy gen, image gen, watermarking). Treat them as "running"
+  // for the matching step so progress bars render correctly after SSE reconnect.
+  const LIVE_STATUSES = {
+    researching: 2,
+    generating_strategy: 3,
+    generating_images: 5,
+    watermarking: 6,
+  };
+
   function getStepStatus(stepNum) {
     if (stepStatuses[stepNum]) return stepStatuses[stepNum];
     if (currentStep > stepNum) return 'completed';
-    if (currentStep === stepNum && (sseStatus === 'running' || sseStatus === 'manus_pause' || sseStatus === 'paused'))
-      return stepNum === currentStep && sseStatus === 'manus_pause' ? 'paused' : stepNum === currentStep ? 'running' : 'pending';
+    if (LIVE_STATUSES[sseStatus] === stepNum) return 'running';
+    if (currentStep === stepNum && (sseStatus === 'running' || sseStatus === 'paused')) return 'running';
+    if (currentStep === stepNum && sseStatus === 'manus_pause') return 'paused';
     return 'pending';
   }
 
@@ -178,15 +279,71 @@ export default function CampaignDashboard() {
         </div>
       )}
 
+      {/* Monthly Recap (Mode B) — available once the campaign has posts */}
+      {campaign?.posts && campaign.posts.length > 0 && (
+        <div className="mb-5 p-5 rounded-xl bg-gradient-to-r from-[#2dd4bf]/5 via-[#3b82f6]/5 to-[#a855f7]/5 border border-white/10">
+          <div className="flex items-start justify-between gap-4 mb-2">
+            <div>
+              <h2 className="text-sm font-semibold text-white uppercase tracking-wider">Monthly Recap</h2>
+              <p className="text-xs text-white/50 mt-1">
+                End-of-month memory document that Manus reads before planning next month. 9 sections. Pulls every prior recap for this client so repetition risk is cumulative.
+              </p>
+              {campaign.monthly_recap_generated_at && (
+                <p className="text-[11px] text-white/30 mt-1">
+                  Generated {new Date(campaign.monthly_recap_generated_at).toLocaleString()}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {campaign.monthly_recap && (
+                <>
+                  <button
+                    onClick={handleCopyRecap}
+                    className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 text-sm hover:bg-white/10"
+                  >
+                    {recapCopied ? 'Copied ✓' : 'Copy'}
+                  </button>
+                  <a
+                    href={`/api/campaigns/${id}/recap.md`}
+                    className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 text-sm hover:bg-white/10"
+                  >
+                    Download .md
+                  </a>
+                </>
+              )}
+              <button
+                onClick={() => setRecapOpen((o) => !o)}
+                disabled={!campaign.monthly_recap}
+                className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 text-sm hover:bg-white/10 disabled:opacity-40"
+              >
+                {recapOpen ? 'Hide' : 'View'}
+              </button>
+              <button
+                onClick={handleGenerateRecap}
+                disabled={recapBusy}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] text-white text-sm font-medium hover:opacity-90 disabled:opacity-40"
+              >
+                {recapBusy ? 'Generating…' : campaign.monthly_recap ? 'Regenerate' : 'Generate Recap'}
+              </button>
+            </div>
+          </div>
+          {recapOpen && campaign.monthly_recap && (
+            <pre className="mt-3 p-4 rounded-lg bg-black/40 border border-white/5 text-white/80 text-xs leading-relaxed whitespace-pre-wrap overflow-x-auto max-h-[420px] overflow-y-auto font-mono">
+{campaign.monthly_recap}
+            </pre>
+          )}
+        </div>
+      )}
+
       {/* Step cards */}
       <div className="space-y-3">
         {STEPS.map((step) => {
           const stepStatus = getStepStatus(step.number);
           const duration = getStepDuration(step.number);
           const showProgress =
-            (step.number === 5 || step.number === 6) &&
-            progress?.step === step.number &&
-            stepStatus === 'running';
+            (step.number === 2 || step.number === 3 || step.number === 5 || step.number === 6) &&
+            stepStatus === 'running' &&
+            (progress?.step === step.number || !progress);
 
           return (
             <div
@@ -246,23 +403,33 @@ export default function CampaignDashboard() {
                 )}
               </div>
 
-              {/* Progress bar for steps 5-6 */}
-              {showProgress && (
-                <div className="mt-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-white/40">{progress.message || 'Processing...'}</span>
-                    <span className="text-xs text-white/50">
-                      {progress.current}/{progress.total}
-                    </span>
+              {/* Progress bar for long-running steps */}
+              {showProgress && (() => {
+                const cur = progress?.current ?? 0;
+                const tot = progress?.total ?? 0;
+                const pct = tot > 0 ? Math.min(100, Math.round((cur / tot) * 100)) : null;
+                const fallback = step.number === 5
+                  ? 'Generating images…'
+                  : step.number === 6 ? 'Watermarking & uploading…'
+                  : step.number === 3 ? 'Generating strategy…'
+                  : 'Running…';
+                return (
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-white/40">{progress?.message || fallback}</span>
+                      <span className="text-xs text-white/50">
+                        {tot > 0 ? `${cur}/${tot}` : cur > 0 ? `${cur}` : ''}
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] rounded-full transition-all duration-500 ${pct == null ? 'animate-pulse' : ''}`}
+                        style={{ width: pct != null ? `${pct}%` : '15%' }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] rounded-full transition-all duration-500"
-                      style={{ width: `${Math.round((progress.current / progress.total) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Step 1 inline form */}
               {step.number === 1 && isDraft && (
@@ -316,6 +483,73 @@ export default function CampaignDashboard() {
                       ))}
                     </div>
                   </div>
+                  {/* Content Strategy — per-campaign, seeded from client defaults */}
+                  <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowStrategy(!showStrategy)}
+                      className="flex items-center gap-2 text-xs text-white/40 hover:text-white/60 transition-colors cursor-pointer w-full"
+                    >
+                      <span className={`transition-transform ${showStrategy ? 'rotate-90' : ''}`}>&#9654;</span>
+                      <span>Content strategy (pillars, hashtags, CTA, platforms)</span>
+                      <span className="text-white/20 ml-auto">seeded from client</span>
+                    </button>
+                    {showStrategy && (
+                      <div className="mt-3 space-y-3">
+                        <div>
+                          <label className="text-xs text-white/40 block mb-1">Content Pillars (5)</label>
+                          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                            {contentPillars.map((p, i) => (
+                              <input
+                                key={i}
+                                value={p}
+                                onChange={(e) => setPillarAt(i, e.target.value)}
+                                placeholder={`Pillar ${i + 1}`}
+                                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple-500/50"
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs text-white/40 block mb-1">Hashtag Bank (space-separated)</label>
+                          <textarea
+                            rows={2}
+                            value={hashtagBank}
+                            onChange={(e) => setHashtagBank(e.target.value)}
+                            placeholder="#example1 #example2 #example3"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple-500/50 resize-y"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-white/40 block mb-1">CTA Style</label>
+                          <input
+                            value={ctaStyle}
+                            onChange={(e) => setCtaStyle(e.target.value)}
+                            placeholder="e.g. DM us to learn more"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple-500/50"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-white/40 block mb-1">Platforms</label>
+                          <div className="flex flex-wrap gap-3">
+                            {['facebook', 'instagram', 'linkedin', 'tiktok'].map((p) => (
+                              <label key={p} className="flex items-center gap-2 text-sm text-white/70 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={platformsSel.includes(p)}
+                                  onChange={() => togglePlatform(p)}
+                                  className="rounded bg-white/10 border-white/20 text-purple-500 focus:ring-purple-500/30"
+                                />
+                                {p.charAt(0).toUpperCase() + p.slice(1)}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-xs text-white/30">These override the client's defaults for this campaign only.</p>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Manus research — casual optional add-on */}
                   <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-3">
                     <button

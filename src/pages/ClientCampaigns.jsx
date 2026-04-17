@@ -47,7 +47,7 @@ export default function ClientCampaigns() {
       });
       const data = await res.json();
       const newId = data.id || data.campaign?.id;
-      if (newId) navigate(`/social/campaign/${newId}`);
+      if (newId) navigate(`/social/campaign/${newId}/import`);
     } catch {
       alert('Failed to create campaign');
     } finally {
