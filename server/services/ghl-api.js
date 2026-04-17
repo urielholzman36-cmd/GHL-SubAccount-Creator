@@ -27,11 +27,24 @@ export class GhlApi {
     const options = { method, headers };
     if (body) options.body = JSON.stringify(body);
     const response = await fetch(url, options);
-    const data = await response.json();
+    const rawText = await response.text();
+    let data;
+    try { data = rawText ? JSON.parse(rawText) : {}; } catch { data = { raw: rawText }; }
     if (!response.ok) {
-      const error = new Error(`GHL API error: ${response.status} ${data.message || JSON.stringify(data)}`);
+      // Log full details to server console so we can see GHL's actual complaint
+      console.error('[GHL API error]', {
+        method, path, status: response.status,
+        message: data.message || null,
+        full_body: data,
+        sent_body_keys: body ? Object.keys(body) : [],
+      });
+      const detail = data.message
+        ? `${data.message}${data.errors ? ' — ' + JSON.stringify(data.errors) : ''}`
+        : (rawText || 'no body').slice(0, 200);
+      const error = new Error(`GHL API error: ${response.status} ${detail}`);
       error.status = response.status;
       error.data = data;
+      error.rawBody = rawText;
       throw error;
     }
     return data;

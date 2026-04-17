@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import logoSrc from '../lib/logoSrc';
 
 export default function ClientList() {
   const [clients, setClients] = useState([]);
@@ -22,12 +23,21 @@ export default function ClientList() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">Clients</h1>
-        <Link
-          to="/social/client/new"
-          className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] text-white text-sm font-medium hover:opacity-90 transition-opacity"
-        >
-          + New Client
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            to="/clients/import"
+            className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white/80 text-sm hover:bg-white/10 transition-colors"
+            title="Drop a Manus research bundle and AI fills in the client for you"
+          >
+            ↓ Import from Research
+          </Link>
+          <Link
+            to="/social/client/new"
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            + New Client
+          </Link>
+        </div>
       </div>
 
       <input
@@ -55,7 +65,7 @@ export default function ClientList() {
             >
               <div className="flex items-center gap-4">
                 {client.logo_path ? (
-                  <img src={`/${client.logo_path}`} alt="" className="w-10 h-10 rounded-lg object-cover bg-white/5" />
+                  <img src={logoSrc(client.logo_path)} alt="" className="w-10 h-10 rounded-lg object-cover bg-white/5" />
                 ) : (
                   <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-white/20 text-sm font-bold">
                     {(client.name || '?')[0]}

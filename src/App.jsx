@@ -23,6 +23,7 @@ import DocumentView from './pages/kb/DocumentView';
 import DocumentHistory from './pages/kb/DocumentHistory';
 import ProposalsList from './pages/proposals/ProposalsList';
 import NewProposal from './pages/proposals/NewProposal';
+import ImportClientResearch from './pages/ImportClientResearch';
 import CampaignPreview from './pages/CampaignPreview';
 import Sidebar from './components/Sidebar';
 import Spinner from './components/Spinner';
@@ -54,6 +55,7 @@ function ProtectedLayout() {
             {/* Overview */}
             <Route path="/" element={<Dashboard />} />
             <Route path="/clients" element={<ClientList />} />
+            <Route path="/clients/import" element={<ImportClientResearch />} />
             <Route path="/clients/:id" element={<ClientDetail />} />
 
             {/* Operations */}

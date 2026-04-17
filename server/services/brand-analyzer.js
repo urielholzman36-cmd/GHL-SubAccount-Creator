@@ -34,11 +34,18 @@ function colorThiefToHex(entry) {
  * The first color is the dominant color; the rest are ordered roughly by
  * frequency inside the image.
  */
-export async function extractPalette(logoAbsolutePath) {
+export async function extractPalette(logoSource) {
+  // Accept either an absolute filesystem path OR an http(s) URL.
+  let input = logoSource;
+  if (typeof logoSource === 'string' && /^https?:\/\//i.test(logoSource)) {
+    const resp = await fetch(logoSource);
+    if (!resp.ok) throw new Error(`Fetch logo failed: HTTP ${resp.status}`);
+    input = Buffer.from(await resp.arrayBuffer());
+  }
   // Normalize through sharp to a PNG buffer so colorthief handles any
   // input format (jpg/png/webp/svg/heic-converted) consistently. Sharp also
   // flattens transparency, which matters because logos often have alpha.
-  const png = await sharp(logoAbsolutePath)
+  const png = await sharp(input)
     .flatten({ background: { r: 255, g: 255, b: 255 } })
     .resize({ width: 512, fit: 'inside' })
     .png()
@@ -141,8 +148,10 @@ export async function analyzeBrand(client, { apiKey } = {}) {
   if (!client?.logo_path) {
     throw new Error('Client has no logo_path — upload a logo before analyzing brand.');
   }
-  const logoPath = path.resolve(PROJECT_ROOT, client.logo_path);
-  const palette = await extractPalette(logoPath);
+  const logoSource = /^https?:\/\//i.test(client.logo_path)
+    ? client.logo_path
+    : path.resolve(PROJECT_ROOT, client.logo_path);
+  const palette = await extractPalette(logoSource);
   const direction = await inferBrandDirection({ client, palette, apiKey });
   return { extracted_palette: palette, ...direction };
 }

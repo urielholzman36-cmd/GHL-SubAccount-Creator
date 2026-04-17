@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import HealthGauge from '../../components/health/HealthGauge.jsx';
 import StatusBadge from '../../components/health/StatusBadge.jsx';
+import logoSrc from '../../lib/logoSrc';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -100,7 +101,7 @@ export default function ClientHealth() {
       <div className="flex items-center justify-between mt-3 mb-6">
         <div className="flex items-center gap-4">
           {client.logo_path ? (
-            <img src={`/${client.logo_path}`} alt="" className="w-14 h-14 rounded-xl object-cover bg-white/5" />
+            <img src={logoSrc(client.logo_path)} alt="" className="w-14 h-14 rounded-xl object-cover bg-white/5" />
           ) : (
             <div className="w-14 h-14 rounded-xl bg-white/5 flex items-center justify-center text-white/20 text-lg font-bold">
               {(client.name || '?')[0]}

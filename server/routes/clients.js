@@ -7,6 +7,24 @@ import * as socialQueries from '../db/social-queries.js';
 import { encrypt } from '../services/crypto.js';
 import { analyzeBrand } from '../services/brand-analyzer.js';
 import { generateClientBrief, briefFilename } from '../services/brief-generator.js';
+import { extractClientFromResearch } from '../services/client-extractor.js';
+import { v2 as cloudinary } from 'cloudinary';
+import AdmZip from 'adm-zip';
+
+function slugify(s) {
+  return String(s || 'client').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'client';
+}
+
+async function uploadLogoToCloudinary(buffer, clientSlug) {
+  const publicId = `vo360-logos/${clientSlug || 'client'}-${Date.now()}`;
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { public_id: publicId, resource_type: 'image', overwrite: true },
+      (err, result) => err ? reject(err) : resolve(result.secure_url),
+    );
+    stream.end(buffer);
+  });
+}
 
 function stripSensitive(client) {
   if (!client) return client;
@@ -31,27 +49,42 @@ const LOGOS_DIR = process.env.VERCEL
   : path.resolve(__dirname, '../../data/logos');
 try { if (!fs.existsSync(LOGOS_DIR)) fs.mkdirSync(LOGOS_DIR, { recursive: true }); } catch (e) { /* read-only FS */ }
 
-const logoStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, LOGOS_DIR),
-  filename: (req, file, cb) => {
-    const timestamp = Date.now();
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    cb(null, `${timestamp}-${safeName}`);
-  },
-});
-
 const uploadLogo = multer({
-  storage: logoStorage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = [
+    const allowedMimes = [
       'image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml', 'image/webp',
       'image/gif', 'image/avif', 'image/heic', 'image/heif',
+      'application/octet-stream', // some clients/curl don't set a mimetype — fall back to extension check
     ];
-    if (allowed.includes(file.mimetype)) cb(null, true);
-    else cb(new Error(`Unsupported logo type: ${file.mimetype}`));
+    const allowedExt = /\.(png|jpe?g|svg|webp|gif|avif|heic|heif)$/i;
+    if (allowedMimes.includes(file.mimetype) || allowedExt.test(file.originalname)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported logo type: ${file.mimetype}`));
+    }
   },
 }).single('logo');
+
+// Research-bundle uploader — accepts zips + md + images.
+const researchUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024, files: 100 },
+}).array('files');
+
+const MD_EXT_RE = /\.(md|markdown|txt)$/i;
+const IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|avif|heic|heif|svg)$/i;
+const LOGO_NAME_RE = /logo/i;
+
+function mimeFromName(name) {
+  const ext = (name.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase();
+  return {
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+    webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml',
+    avif: 'image/avif', heic: 'image/heic', heif: 'image/heif',
+  }[ext] || 'application/octet-stream';
+}
 
 export function createClientsRouter(db) {
   const router = Router();
@@ -116,6 +149,78 @@ export function createClientsRouter(db) {
     res.json(stripSensitive(client));
   });
 
+  // POST /import-research/extract — accept a bundle of Manus research files
+  // (markdown + images, optionally zipped) and return structured client fields
+  // extracted by Claude, plus the chosen logo as base64 for preview/re-upload.
+  router.post('/import-research/extract', (req, res) => {
+    researchUpload(req, res, async (uploadErr) => {
+      if (uploadErr) return res.status(400).json({ error: 'Upload failed', details: uploadErr.message });
+      try {
+        const markdowns = [];
+        const images = [];
+
+        function addEntry(name, buffer) {
+          if (MD_EXT_RE.test(name)) {
+            markdowns.push({ filename: name, content: buffer.toString('utf8') });
+          } else if (IMAGE_EXT_RE.test(name)) {
+            images.push({ filename: name, buffer });
+          }
+        }
+
+        for (const file of req.files || []) {
+          if (/\.zip$/i.test(file.originalname)) {
+            const zip = new AdmZip(file.buffer);
+            for (const entry of zip.getEntries()) {
+              if (entry.isDirectory) continue;
+              const base = path.basename(entry.entryName);
+              if (!base || base.startsWith('.') || base.startsWith('__MACOSX')) continue;
+              if (entry.entryName.includes('__MACOSX/') || entry.entryName.startsWith('._')) continue;
+              addEntry(base, entry.getData());
+            }
+          } else {
+            addEntry(file.originalname, file.buffer);
+          }
+        }
+
+        if (markdowns.length === 0) {
+          return res.status(400).json({ error: 'No markdown research files found in upload' });
+        }
+
+        // Concatenate markdown content with file headers so Claude can see provenance
+        const combined = markdowns.map((m) => `# === FILE: ${m.filename} ===\n\n${m.content}`).join('\n\n---\n\n');
+
+        const extracted = await extractClientFromResearch({
+          researchText: combined,
+          apiKey: process.env.ANTHROPIC_API_KEY,
+        });
+
+        // Pick best logo candidate — prefer filename with "logo", else first image
+        let logo = null;
+        if (images.length > 0) {
+          const preferred = images.find((img) => LOGO_NAME_RE.test(img.filename)) || images[0];
+          logo = {
+            filename: preferred.filename,
+            mime: mimeFromName(preferred.filename),
+            data_base64: preferred.buffer.toString('base64'),
+          };
+        }
+
+        res.json({
+          extracted,
+          logo,
+          research_markdown: combined,
+          file_counts: {
+            markdown: markdowns.length,
+            images: images.length,
+          },
+        });
+      } catch (err) {
+        console.error('import-research extract failed:', err);
+        res.status(500).json({ error: 'Extraction failed', details: err.message });
+      }
+    });
+  });
+
   // POST / — create client (multipart with optional logo)
   router.post('/', (req, res) => {
     uploadLogo(req, res, async (uploadErr) => {
@@ -126,7 +231,13 @@ export function createClientsRouter(db) {
       const body = handleGhlApiKey(req.body || {});
 
       if (req.file) {
-        body.logo_path = path.relative(path.resolve(__dirname, '../..'), req.file.path);
+        try {
+          const slug = body.cloudinary_folder || slugify(body.name);
+          body.logo_path = await uploadLogoToCloudinary(req.file.buffer, slug);
+        } catch (err) {
+          console.error('cloudinary logo upload failed:', err);
+          return res.status(500).json({ error: 'Logo upload to Cloudinary failed', details: err.message });
+        }
       }
 
       try {
@@ -185,12 +296,13 @@ export function createClientsRouter(db) {
       const body = handleGhlApiKey(req.body || {});
 
       if (req.file) {
-        // Delete old logo if it exists
-        if (existing.logo_path) {
-          const oldPath = path.resolve(__dirname, '../..', existing.logo_path);
-          try { fs.unlinkSync(oldPath); } catch (_) {}
+        try {
+          const slug = body.cloudinary_folder || existing.cloudinary_folder || slugify(existing.name || body.name);
+          body.logo_path = await uploadLogoToCloudinary(req.file.buffer, slug);
+        } catch (err) {
+          console.error('cloudinary logo upload failed:', err);
+          return res.status(500).json({ error: 'Logo upload to Cloudinary failed', details: err.message });
         }
-        body.logo_path = path.relative(path.resolve(__dirname, '../..'), req.file.path);
       }
 
       try {

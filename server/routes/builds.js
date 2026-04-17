@@ -181,6 +181,24 @@ export function createBuildsRouter(db) {
             id,
           ],
         });
+
+        // Auto-extract palette from the uploaded logo if no colors were provided.
+        // This makes the 10Web prompt concrete (hex codes) instead of generic.
+        if (!brandColorsJson && req.file) {
+          try {
+            const { extractPalette } = await import('../services/brand-analyzer.js');
+            const palette = await extractPalette(req.file.path);
+            if (Array.isArray(palette) && palette.length > 0) {
+              await db.execute({
+                sql: 'UPDATE builds SET brand_colors = ? WHERE id = ?',
+                args: [JSON.stringify(palette), id],
+              });
+              console.log(`[build ${id}] auto-extracted palette: ${palette.join(', ')}`);
+            }
+          } catch (err) {
+            console.error(`[build ${id}] palette extraction failed (non-blocking):`, err.message);
+          }
+        }
       } catch (err) {
         return res.status(500).json({ error: 'Failed to create build record', details: err.message });
       }

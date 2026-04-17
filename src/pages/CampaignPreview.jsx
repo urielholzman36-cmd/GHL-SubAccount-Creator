@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import logoSrc from '../lib/logoSrc';
 
 function PostCard({ post }) {
   let images = [];
@@ -95,7 +96,7 @@ export default function CampaignPreview() {
         <div className="max-w-5xl mx-auto px-6 py-8">
           <div className="flex items-center gap-4 mb-4">
             {data.client_logo && (
-              <img src={`/${data.client_logo}`} alt="" className="w-12 h-12 rounded-xl object-cover bg-white/5" />
+              <img src={logoSrc(data.client_logo)} alt="" className="w-12 h-12 rounded-xl object-cover bg-white/5" />
             )}
             <div>
               <h1 className="text-2xl font-bold text-white">{data.client_name}</h1>

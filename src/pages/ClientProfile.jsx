@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import CollapsibleSection from '../components/CollapsibleSection';
+import logoSrc from '../lib/logoSrc';
 
 const DEFAULT_PILLARS = ['PAIN', 'SOLUTION', 'AUTHORITY', 'PROOF', 'CTA'];
 const PLATFORM_OPTIONS = ['facebook', 'instagram', 'linkedin', 'tiktok'];
@@ -405,7 +406,7 @@ export default function ClientProfile() {
               )}
               {!form.logo && form.logo_path && !isNew && (
                 <div className="mt-2 flex items-center gap-3">
-                  <img src={`/${form.logo_path}`} alt="Current logo" className="w-10 h-10 rounded-lg object-cover bg-white/5" />
+                  <img src={logoSrc(form.logo_path)} alt="Current logo" className="w-10 h-10 rounded-lg object-cover bg-white/5" />
                   <span className="text-xs text-white/40">Current logo — pick a new file to replace</span>
                 </div>
               )}

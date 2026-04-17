@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import CollapsibleSection from './CollapsibleSection';
+import logoSrc from '../lib/logoSrc';
 
 const TIMEZONES = [
   'America/New_York',
@@ -149,7 +150,7 @@ export default function BuildForm({ onBuildStarted }) {
       }
       // Show existing logo if available
       if (client.logo_path) {
-        setLogoPreview(`/${client.logo_path}`);
+        setLogoPreview(logoSrc(client.logo_path));
       }
     } catch {}
   }
