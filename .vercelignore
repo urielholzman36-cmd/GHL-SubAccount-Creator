@@ -1,0 +1,27 @@
+# Runtime data (client logos, extracted Manus bundles, campaign staging) — not needed at deploy
+data/
+
+# Build artifacts and local caches
+node_modules/.cache/
+.vite/
+*.log
+.DS_Store
+
+# Local SQLite / test DBs
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-*
+
+# IDE / OS
+.idea/
+.vscode/
+.env.local
+.env.*.local
+
+# Plans / specs (docs not needed at runtime)
+docs/
+
+# Source project files we don't need bundled
+coverage/
+.git/
