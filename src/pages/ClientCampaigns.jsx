@@ -1,5 +1,68 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+
+function InlineEdit({ value, placeholder, type = 'text', onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? '');
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  useEffect(() => {
+    setDraft(value ?? '');
+  }, [value]);
+
+  async function commit() {
+    const next = draft.trim();
+    const current = (value ?? '').toString();
+    if (next === current) { setEditing(false); return; }
+    setSaving(true);
+    try {
+      await onSave(next || null);
+      setEditing(false);
+    } catch (err) {
+      alert(err?.message || 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function onKey(e) {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    else if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false); }
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type={type}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={onKey}
+        onClick={(e) => e.stopPropagation()}
+        placeholder={placeholder}
+        disabled={saving}
+        className="w-full px-2 py-1 -ml-2 rounded bg-white/[0.06] border border-[#3b82f6]/40 text-sm text-white focus:outline-none focus:border-[#3b82f6]"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+      className={`text-left -ml-2 px-2 py-1 rounded text-sm truncate hover:bg-white/[0.06] border border-transparent hover:border-white/10 transition-colors w-full ${value ? 'text-white/80' : 'text-white/30 italic'}`}
+      title="Click to edit"
+    >
+      {value || placeholder || '—'}
+    </button>
+  );
+}
 
 const STATUS_STYLES = {
   draft: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
@@ -71,6 +134,19 @@ export default function ClientCampaigns() {
     window.open(`/api/campaigns/${campId}/csv`, '_blank');
   }
 
+  async function updateCampaignField(campId, field, value) {
+    const res = await fetch(`/api/campaigns/${campId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [field]: value }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.details || data.error || `HTTP ${res.status}`);
+    }
+    setCampaigns((prev) => prev.map((c) => c.id === campId ? { ...c, [field]: value } : c));
+  }
+
   if (loading) return <div className="p-8 pl-16 text-white/50">Loading campaigns...</div>;
 
   return (
@@ -140,8 +216,16 @@ export default function ClientCampaigns() {
               onClick={() => navigate(`/social/campaign/${camp.id}`)}
               className="grid grid-cols-[1fr_1fr_auto_auto] gap-4 px-5 py-3.5 border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors items-center"
             >
-              <span className="text-sm text-white/80">{camp.month || '-'}</span>
-              <span className="text-sm text-white/60 truncate">{camp.theme || '-'}</span>
+              <InlineEdit
+                value={camp.month}
+                placeholder="2026-05"
+                onSave={(v) => updateCampaignField(camp.id, 'month', v)}
+              />
+              <InlineEdit
+                value={camp.theme}
+                placeholder="Theme…"
+                onSave={(v) => updateCampaignField(camp.id, 'theme', v)}
+              />
               <span
                 className={`text-xs px-2.5 py-1 rounded-full border ${STATUS_STYLES[camp.status] || STATUS_STYLES.draft}`}
               >

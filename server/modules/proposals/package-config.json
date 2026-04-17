@@ -1,0 +1,38 @@
+{
+  "package": {
+    "name": "VO360 Complete",
+    "price": 749,
+    "billing": "per month",
+    "setup_fee": 0,
+    "contract_length_months": 3,
+    "services": [
+      "Full Website Build",
+      "Unified Omni-Channel Chat",
+      "Full Sales Pipeline Setup",
+      "GMB Growth & Reputation Suite",
+      "Automated SMS/WhatsApp Messaging",
+      "Multi-Platform Social Planner",
+      "AI Appointment Setter Chatbot",
+      "Business Process Automation"
+    ],
+    "not_included": [
+      "Paid advertising spend (Google Ads, Facebook Ads)",
+      "Google My Business setup (manual process)",
+      "Third-party software subscription fees"
+    ],
+    "payment_terms": {
+      "due_day": 1,
+      "auto_charge_after_days": 30,
+      "late_fee_percent": 5
+    },
+    "cancellation_notice_days": 30,
+    "governing_state": "YOUR_STATE_HERE"
+  },
+  "vo360": {
+    "company_name": "VO360",
+    "tagline": "Your Intelligent Execution Partner",
+    "website": "vo360.net",
+    "email": "hello@vo360.net",
+    "rep_name": "Uriel Holzman"
+  }
+}

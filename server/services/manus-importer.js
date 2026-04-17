@@ -312,26 +312,29 @@ function slideOrderFromRole(role) {
 export function parsePostKitsMd(filepath) {
   const raw = fs.readFileSync(filepath, 'utf8');
   const map = new Map();
-  // Split on H2 headers that start with a post_id pattern
-  const sections = raw.split(/^##\s+([A-Z]{2,}-\d+)\s*[—-]\s*(.*)$/m);
-  // split result: [prefix, id1, title1, body1, id2, title2, body2, ...]
-  for (let i = 1; i + 2 < sections.length; i += 3) {
-    const postId = sections[i].trim().toUpperCase();
-    const title = (sections[i + 1] || '').trim();
-    const body = sections[i + 2] || '';
+  // Match H2 headers in either order — "## LYR-01 — Title" or "## Day 1 — LYR-01"
+  // Capture groups: (full header line, extracted post_id)
+  const HEADER_RE = /^##\s+(?:(?:day\s*\d+)\s*[—–-]\s*([A-Z]{2,}-\d+)|([A-Z]{2,}-\d+)\s*[—–-]\s*.*)\s*$/gim;
+  const headers = [];
+  let m;
+  while ((m = HEADER_RE.exec(raw)) !== null) {
+    headers.push({ postId: (m[1] || m[2]).toUpperCase(), start: m.index, end: HEADER_RE.lastIndex });
+  }
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i];
+    const body = raw.slice(h.end, headers[i + 1] ? headers[i + 1].start : raw.length);
     const fields = {};
     for (const line of body.split(/\r?\n/)) {
       if (!/^\s*\|/.test(line)) continue;
       const cells = line.split('|').map((s) => s.trim()).filter((_, j, arr) => j !== 0 && j !== arr.length - 1);
       if (cells.length < 2) continue;
       const key = normalizeKey(cells[0]);
-      // Header row | Field | Content | and separator |---|---| should be skipped
       if (!key || key === 'field' || key.startsWith('-')) continue;
       const value = cells.slice(1).join(' | ').trim();
       fields[key] = value;
     }
-    map.set(postId, {
-      title,
+    map.set(h.postId, {
+      title: fields.primarymessage || null,
       post_type: (fields.posttype || '').toLowerCase() || null,
       caption: fields.caption || null,
       description: fields.description || null,

@@ -1,5 +1,6 @@
 import { initializeSocialTables } from './social-schema.js';
 import { initializeKbTables } from '../modules/kb/schema.js';
+import { initializeProposalsTables } from '../modules/proposals/schema.js';
 
 export async function initializeDb(db) {
   // Turso/libsql doesn't need WAL or foreign_keys pragma — handled server-side
@@ -209,4 +210,7 @@ export async function initializeDb(db) {
 
   // M2 Knowledge Base tables
   await initializeKbTables(db);
+
+  // M3 Proposals table
+  await initializeProposalsTables(db);
 }

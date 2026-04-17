@@ -15,7 +15,7 @@ const UPLOAD_TMP = path.resolve(PROJECT_ROOT, 'data', 'manus-uploads');
 fs.mkdirSync(UPLOAD_TMP, { recursive: true });
 const uploadBundle = multer({
   dest: UPLOAD_TMP,
-  limits: { fileSize: 200 * 1024 * 1024, files: 200 },
+  limits: { fileSize: 2 * 1024 * 1024 * 1024, files: 500 },
 }).array('files');
 
 // ── SSE broadcasting ─────────────────────────────────────────────────────────
@@ -352,6 +352,31 @@ export function createCampaignsRouter(db) {
       res.status(201).json({ id });
     } catch (err) {
       res.status(500).json({ error: 'Failed to create campaign', details: err.message });
+    }
+  });
+
+  // PATCH /:id — update brief fields without running the pipeline
+  router.patch('/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const campaign = await socialQueries.getCampaign(db, id);
+      if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+
+      const allowed = [
+        'month', 'theme', 'start_date', 'post_count',
+        'content_pillars', 'hashtag_bank', 'cta_style', 'platforms',
+        'manus_research',
+      ];
+      for (const key of allowed) {
+        if (Object.prototype.hasOwnProperty.call(req.body || {}, key)) {
+          await socialQueries.updateCampaignField(db, id, key, req.body[key]);
+        }
+      }
+      const updated = await socialQueries.getCampaign(db, id);
+      res.json(updated);
+    } catch (err) {
+      console.error('patch campaign failed:', err);
+      res.status(500).json({ error: 'Update failed', details: err.message });
     }
   });
 

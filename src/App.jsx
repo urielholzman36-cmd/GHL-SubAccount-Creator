@@ -21,6 +21,8 @@ import KnowledgeList from './pages/kb/KnowledgeList';
 import NewDocument from './pages/kb/NewDocument';
 import DocumentView from './pages/kb/DocumentView';
 import DocumentHistory from './pages/kb/DocumentHistory';
+import ProposalsList from './pages/proposals/ProposalsList';
+import NewProposal from './pages/proposals/NewProposal';
 import CampaignPreview from './pages/CampaignPreview';
 import Sidebar from './components/Sidebar';
 import Spinner from './components/Spinner';
@@ -68,7 +70,8 @@ function ProtectedLayout() {
             <Route path="/reports" element={<ComingSoon />} />
 
             {/* Sales */}
-            <Route path="/proposals" element={<ComingSoon />} />
+            <Route path="/proposals" element={<ProposalsList />} />
+            <Route path="/proposals/new" element={<NewProposal />} />
 
             {/* Internal */}
             <Route path="/kb" element={<KnowledgeList />} />
