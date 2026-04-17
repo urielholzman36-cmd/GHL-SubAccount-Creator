@@ -9,8 +9,10 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const LOGOS_DIR = path.resolve(__dirname, '../../data/logos');
-if (!fs.existsSync(LOGOS_DIR)) fs.mkdirSync(LOGOS_DIR, { recursive: true });
+const LOGOS_DIR = process.env.VERCEL
+  ? '/tmp/logos'
+  : path.resolve(__dirname, '../../data/logos');
+try { if (!fs.existsSync(LOGOS_DIR)) fs.mkdirSync(LOGOS_DIR, { recursive: true }); } catch (e) { /* read-only FS */ }
 
 const logoStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, LOGOS_DIR),

@@ -11,8 +11,10 @@ import { generateMonthlyRecap, recapFilename } from '../services/recap-generator
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
-const UPLOAD_TMP = path.resolve(PROJECT_ROOT, 'data', 'manus-uploads');
-fs.mkdirSync(UPLOAD_TMP, { recursive: true });
+const UPLOAD_TMP = process.env.VERCEL
+  ? '/tmp/manus-uploads'
+  : path.resolve(PROJECT_ROOT, 'data', 'manus-uploads');
+try { fs.mkdirSync(UPLOAD_TMP, { recursive: true }); } catch (e) { /* read-only FS; multer will surface errors per-request */ }
 const uploadBundle = multer({
   dest: UPLOAD_TMP,
   limits: { fileSize: 2 * 1024 * 1024 * 1024, files: 500 },
