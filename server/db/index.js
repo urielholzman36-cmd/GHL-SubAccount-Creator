@@ -1,4 +1,5 @@
 import { initializeSocialTables } from './social-schema.js';
+import { initializeKbTables } from '../modules/kb/schema.js';
 
 export async function initializeDb(db) {
   // Turso/libsql doesn't need WAL or foreign_keys pragma — handled server-side
@@ -205,4 +206,7 @@ export async function initializeDb(db) {
     CREATE INDEX IF NOT EXISTS idx_alerts_client
       ON alerts(client_id, created_at DESC);
   `);
+
+  // M2 Knowledge Base tables
+  await initializeKbTables(db);
 }

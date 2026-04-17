@@ -17,6 +17,10 @@ import Settings from './pages/Settings';
 import ComingSoon from './pages/ComingSoon';
 import HealthDashboard from './pages/health/HealthDashboard';
 import ClientHealth from './pages/health/ClientHealth';
+import KnowledgeList from './pages/kb/KnowledgeList';
+import NewDocument from './pages/kb/NewDocument';
+import DocumentView from './pages/kb/DocumentView';
+import DocumentHistory from './pages/kb/DocumentHistory';
 import CampaignPreview from './pages/CampaignPreview';
 import Sidebar from './components/Sidebar';
 import Spinner from './components/Spinner';
@@ -67,7 +71,10 @@ function ProtectedLayout() {
             <Route path="/proposals" element={<ComingSoon />} />
 
             {/* Internal */}
-            <Route path="/kb" element={<ComingSoon />} />
+            <Route path="/kb" element={<KnowledgeList />} />
+            <Route path="/kb/new" element={<NewDocument />} />
+            <Route path="/kb/doc/:id" element={<DocumentView />} />
+            <Route path="/kb/doc/:id/history" element={<DocumentHistory />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/users" element={<Users />} />
           </Routes>
