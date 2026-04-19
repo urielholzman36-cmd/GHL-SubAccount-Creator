@@ -24,3 +24,5 @@ export function defaultDateRange(days = 30) {
   from.setUTCDate(to.getUTCDate() - days);
   return { from: from.toISOString(), to: to.toISOString() };
 }
+
+export { buildMonthlyAggregate, fetchMonthlyAggregate } from './monthly-aggregate.js';
