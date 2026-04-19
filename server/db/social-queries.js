@@ -8,8 +8,7 @@ const CLIENT_FIELDS = new Set([
   'name', 'industry', 'location', 'website', 'logo_path',
   'cloudinary_folder', 'platforms', 'posting_time', 'brand_tone',
   'brand_description', 'target_audience', 'services', 'content_pillars',
-  'hashtag_bank', 'cta_style', 'uses_manus', 'watermark_position',
-  'watermark_opacity',
+  'hashtag_bank', 'cta_style', 'uses_manus',
   // Unified Command Center fields
   'contact_name', 'email', 'phone', 'address', 'city', 'state', 'zip',
   'country', 'location_id', 'brand_colors_json', 'design_style',

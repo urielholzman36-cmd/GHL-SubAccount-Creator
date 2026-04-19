@@ -35,8 +35,6 @@ export default function ClientProfile() {
     platforms: [],
     logo: null,
     cloudinary_folder: '',
-    watermark_position: 'bottom-right',
-    watermark_opacity: 0.5,
     uses_manus: false,
     posting_time: '09:00',
     location_id: '',
@@ -72,8 +70,6 @@ export default function ClientProfile() {
           cta_style: c.cta_style || '',
           platforms: Array.isArray(c.platforms) ? c.platforms : tryParse(c.platforms, []),
           cloudinary_folder: c.cloudinary_folder || '',
-          watermark_position: c.watermark_position || 'bottom-right',
-          watermark_opacity: c.watermark_opacity ?? 0.5,
           uses_manus: !!c.uses_manus,
           posting_time: c.posting_time || '09:00',
           location_id: c.location_id || '',
@@ -175,8 +171,6 @@ export default function ClientProfile() {
     fd.append('cta_style', form.cta_style);
     fd.append('platforms', JSON.stringify(form.platforms));
     fd.append('cloudinary_folder', form.cloudinary_folder);
-    fd.append('watermark_position', form.watermark_position);
-    fd.append('watermark_opacity', String(form.watermark_opacity));
     fd.append('uses_manus', form.uses_manus ? '1' : '0');
     fd.append('posting_time', form.posting_time);
     if (form.location_id) fd.append('location_id', form.location_id.trim());
@@ -415,31 +409,6 @@ export default function ClientProfile() {
             <div>
               <label className={labelClass}>Cloudinary Folder</label>
               <input className={inputClass} value={form.cloudinary_folder} onChange={(e) => set('cloudinary_folder', e.target.value)} placeholder="folder/path" />
-            </div>
-            <div>
-              <label className={labelClass}>Watermark Position</label>
-              <select
-                className={inputClass}
-                value={form.watermark_position}
-                onChange={(e) => set('watermark_position', e.target.value)}
-              >
-                <option value="bottom-right">Bottom Right</option>
-                <option value="bottom-left">Bottom Left</option>
-                <option value="top-right">Top Right</option>
-                <option value="top-left">Top Left</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Watermark Opacity: {form.watermark_opacity}</label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={form.watermark_opacity}
-                onChange={(e) => set('watermark_opacity', parseFloat(e.target.value))}
-                className="w-full accent-purple-500"
-              />
             </div>
           </div>
         </CollapsibleSection>

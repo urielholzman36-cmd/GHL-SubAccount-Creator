@@ -18,7 +18,6 @@ import {
 import { runWebResearch, mergeResearch } from './social-research.js';
 import { generateStrategyPack } from './social-strategy.js';
 import { writePromptsCsv, runKreaGeneration, getImagePaths } from './social-images.js';
-import { applyWatermark } from './social-watermark.js';
 import { initCloudinary, compressAndUpload, buildPublicId } from './social-cloudinary.js';
 import { buildGhlCsv } from './social-csv.js';
 
@@ -33,7 +32,7 @@ export const SOCIAL_STEPS = [
   { number: 3, name: 'Strategy Pack', phase: 'Strategy', manual: false },
   { number: 4, name: 'Review Strategy', phase: 'Strategy', manual: true },
   { number: 5, name: 'Generate Images', phase: 'Content', manual: false },
-  { number: 6, name: 'Watermark + Upload', phase: 'Content', manual: false },
+  { number: 6, name: 'Upload', phase: 'Content', manual: false },
   { number: 7, name: 'Review Final + Export CSV', phase: 'Content', manual: true },
 ];
 
@@ -45,7 +44,7 @@ const STATUS_MAP = {
   3: 'generating_strategy',
   4: 'review_strategy',
   5: 'generating_images',
-  6: 'watermarking',
+  6: 'uploading',
   7: 'review_final',
 };
 
@@ -280,7 +279,7 @@ export class SocialRunner {
     });
   }
 
-  // ── Step 6: Watermark + Upload ────────────────────────────────
+  // ── Step 6: Upload ─────────────────────────────────────────────
 
   async _step6WatermarkUpload(campaignId) {
     const campaign = await getCampaign(this.db, campaignId);
@@ -293,7 +292,6 @@ export class SocialRunner {
     const imagePaths = getImagePaths(imagesFolder);
 
     if (process.env.DRY_RUN === 'true') {
-      // Assign fake URLs
       for (const post of posts) {
         const files = imagePaths[post.day_number] || [];
         const fakeUrls = files.map((_, i) =>
@@ -306,38 +304,17 @@ export class SocialRunner {
       return;
     }
 
-    // Live mode: watermark + upload to Cloudinary
     initCloudinary();
-
-    let logoBuffer = null;
-    if (client.logo_path) {
-      const projectRoot = path.resolve(__dirname, '..', '..');
-      logoBuffer = fs.readFileSync(path.resolve(projectRoot, client.logo_path));
-    }
 
     for (let postIdx = 0; postIdx < posts.length; postIdx++) {
       const post = posts[postIdx];
       const files = imagePaths[post.day_number] || [];
       const urls = [];
 
-      this.emit({ type: 'step-progress', step: 6, current: postIdx + 1, total: posts.length, message: `Watermarking & uploading post ${postIdx + 1}/${posts.length}` });
+      this.emit({ type: 'step-progress', step: 6, current: postIdx + 1, total: posts.length, message: `Uploading post ${postIdx + 1}/${posts.length}` });
 
       for (let i = 0; i < files.length; i++) {
-        let imageBuffer = fs.readFileSync(files[i]);
-
-        if (logoBuffer) {
-          const sharp = (await import('sharp')).default;
-          const meta = await sharp(imageBuffer).metadata();
-          imageBuffer = await applyWatermark({
-            imageBuffer,
-            logoBuffer,
-            position: client.watermark_position || 'bottom-right',
-            opacity: client.watermark_opacity || 0.7,
-            imageWidth: meta.width,
-            imageHeight: meta.height,
-          });
-        }
-
+        const imageBuffer = fs.readFileSync(files[i]);
         const publicId = buildPublicId(
           client.cloudinary_folder || client.name,
           post.day_number,
