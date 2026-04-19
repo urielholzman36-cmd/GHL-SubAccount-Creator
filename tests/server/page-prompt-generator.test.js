@@ -28,10 +28,10 @@ describe('page prompt generator — deterministic pieces', () => {
     expect(block).toContain('Mukilteo');
   });
 
-  it('exposes the 7 expected presets', () => {
+  it('exposes the expected presets', () => {
     expect(Object.keys(PRESETS).sort()).toEqual([
-      'about', 'custom', 'landing', 'pricing',
-      'service_areas', 'services_detail', 'testimonials',
+      'about', 'blog', 'case_studies', 'free_text', 'gallery',
+      'landing', 'pricing', 'service_areas', 'services_detail', 'testimonials',
     ]);
   });
 

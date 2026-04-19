@@ -29,9 +29,21 @@ export const PRESETS = {
     label: 'Landing / Lead Magnet',
     sections: 'Single Hero with offer, 3 Benefit bullets, Social Proof (1 line), Single CTA',
   },
-  custom: {
-    label: 'Custom',
-    sections: 'Pick the structure based on user notes.',
+  blog: {
+    label: 'Blog / Articles Index',
+    sections: 'Hero (blog purpose + topic mix), Featured Post block, Post Grid (6-9 cards — title, excerpt, date, category, read-more), Category Filter strip, Newsletter CTA',
+  },
+  case_studies: {
+    label: 'Case Studies / Portfolio',
+    sections: 'Hero, Project Grid (6-9 projects — title, industry/service, short outcome line, before/after thumb), Featured Case Study (problem → solution → outcome, 3 metrics), CTA',
+  },
+  gallery: {
+    label: 'Gallery',
+    sections: 'Hero (what the gallery shows), Category Filter tabs, Masonry/Grid layout (12-18 image slots with short captions), Lightbox behavior note, CTA',
+  },
+  free_text: {
+    label: 'Free Text',
+    sections: 'Pick the structure entirely from the user notes. No template — use only the user notes to decide sections.',
   },
 };
 
