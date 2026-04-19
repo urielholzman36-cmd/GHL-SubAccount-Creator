@@ -313,8 +313,9 @@ export function parsePostKitsMd(filepath) {
   const raw = fs.readFileSync(filepath, 'utf8');
   const map = new Map();
   // Match H2 headers in either order — "## LYR-01 — Title" or "## Day 1 — LYR-01"
+  // Post ID prefix allows letters + optional digits (e.g. LYR-01, VO360-01).
   // Capture groups: (full header line, extracted post_id)
-  const HEADER_RE = /^##\s+(?:(?:day\s*\d+)\s*[—–-]\s*([A-Z]{2,}-\d+)|([A-Z]{2,}-\d+)\s*[—–-]\s*.*)\s*$/gim;
+  const HEADER_RE = /^##\s+(?:(?:day\s*\d+)\s*[—–-]\s*([A-Z]{2,}[0-9]*-\d+)|([A-Z]{2,}[0-9]*-\d+)\s*[—–-]\s*.*)\s*$/gim;
   const headers = [];
   let m;
   while ((m = HEADER_RE.exec(raw)) !== null) {

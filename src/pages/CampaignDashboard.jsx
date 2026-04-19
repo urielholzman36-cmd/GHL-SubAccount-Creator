@@ -279,6 +279,24 @@ export default function CampaignDashboard() {
         </div>
       )}
 
+      {/* Draft mode selector — choose between AI pipeline (below) or Manus bundle import */}
+      {isDraft && !(campaign?.posts && campaign.posts.length > 0) && (
+        <div className="mb-5 p-4 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-white">Already have a Manus bundle?</p>
+            <p className="text-xs text-white/50 mt-0.5">
+              Skip the 7-step AI pipeline below and upload your pre-made images + manifest + post_kits instead.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate(`/social/campaign/${id}/import`)}
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] text-white text-sm font-medium hover:opacity-90 transition-opacity shrink-0"
+          >
+            Import Bundle
+          </button>
+        </div>
+      )}
+
       {/* Monthly Recap (Mode B) — available once the campaign has posts */}
       {campaign?.posts && campaign.posts.length > 0 && (
         <div className="mb-5 p-5 rounded-xl bg-gradient-to-r from-[#2dd4bf]/5 via-[#3b82f6]/5 to-[#a855f7]/5 border border-white/10">
