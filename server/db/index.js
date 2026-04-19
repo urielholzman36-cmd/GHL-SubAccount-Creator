@@ -100,6 +100,22 @@ export async function initializeDb(db) {
     }
   }
 
+  // Rich brand-analysis fields on build (copied from the client at import time)
+  const buildBrandColsResult = await db.execute("PRAGMA table_info(builds)");
+  const buildBrandExisting = buildBrandColsResult.rows.map((c) => c.name);
+  const brandCols = [
+    ['brand_palette_json', 'TEXT'],
+    ['brand_personality', 'TEXT'],
+    ['brand_mood_description', 'TEXT'],
+    ['industry_cues_json', 'TEXT'],
+    ['recommended_surface_style', 'TEXT'],
+  ];
+  for (const [name, type] of brandCols) {
+    if (!buildBrandExisting.includes(name)) {
+      await db.execute(`ALTER TABLE builds ADD COLUMN ${name} ${type}`);
+    }
+  }
+
   // Unified Command Center client columns
   const ccCols = [
     ['contact_name', 'TEXT'],

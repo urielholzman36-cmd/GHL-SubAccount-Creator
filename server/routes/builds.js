@@ -129,6 +129,34 @@ export function createBuildsRouter(db) {
         }
       }
 
+      // Rich brand-analysis fields carried over from the client (optional).
+      let brandPaletteJson = null;
+      if (body.brand_palette_json) {
+        try {
+          const parsed = typeof body.brand_palette_json === 'string'
+            ? JSON.parse(body.brand_palette_json)
+            : body.brand_palette_json;
+          if (parsed && typeof parsed === 'object') brandPaletteJson = JSON.stringify(parsed);
+        } catch (_) {
+          // Non-fatal: drop it silently rather than failing the build submission.
+          brandPaletteJson = null;
+        }
+      }
+      let industryCuesJson = null;
+      if (body.industry_cues_json) {
+        try {
+          const parsed = typeof body.industry_cues_json === 'string'
+            ? JSON.parse(body.industry_cues_json)
+            : body.industry_cues_json;
+          if (Array.isArray(parsed)) industryCuesJson = JSON.stringify(parsed);
+        } catch (_) {
+          industryCuesJson = null;
+        }
+      }
+      const brandPersonality = (body.brand_personality || '').toString().trim() || null;
+      const brandMoodDescription = (body.brand_mood_description || '').toString().trim() || null;
+      const recommendedSurfaceStyle = (body.recommended_surface_style || '').toString().trim() || null;
+
       const errors = validateBuild(body);
       if (!body.industry_text || !String(body.industry_text).trim()) {
         errors.push('industry_text is required');
@@ -171,13 +199,20 @@ export function createBuildsRouter(db) {
 
         const logoPath = req.file ? path.relative(path.resolve(__dirname, '../..'), req.file.path) : null;
         await db.execute({
-          sql: `UPDATE builds SET industry_text = ?, business_description = ?, target_audience = ?, logo_path = ?, brand_colors = ? WHERE id = ?`,
+          sql: `UPDATE builds SET industry_text = ?, business_description = ?, target_audience = ?, logo_path = ?, brand_colors = ?,
+                brand_palette_json = ?, brand_personality = ?, brand_mood_description = ?, industry_cues_json = ?, recommended_surface_style = ?
+                WHERE id = ?`,
           args: [
             body.industry_text.trim(),
             (body.business_description || '').trim(),
             body.target_audience.trim(),
             logoPath,
             brandColorsJson,
+            brandPaletteJson,
+            brandPersonality,
+            brandMoodDescription,
+            industryCuesJson,
+            recommendedSurfaceStyle,
             id,
           ],
         });

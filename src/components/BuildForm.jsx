@@ -32,6 +32,13 @@ const INITIAL_FORM = {
   businessDescription: '',
   targetAudience: '',
   brandColors: [],
+  // Rich brand analysis fields — populated from a client's Analyze Brand output.
+  // Forwarded to the server so the 10Web prompt generator can use them.
+  brandPalette: null, // { primary, secondary, accent, neutral, background }
+  brandPersonality: '',
+  brandMoodDescription: '',
+  industryCues: [],
+  recommendedSurfaceStyle: '',
 };
 
 function validate(fields) {
@@ -122,6 +129,28 @@ export default function BuildForm({ onBuildStarted }) {
       const res = await fetch(`/api/clients/${clientId}`);
       const client = await res.json();
       if (!client || client.error) return;
+      // Parse Analyze Brand outputs so the 10Web prompt can use role-tagged
+      // colors + personality/mood/cues/surface_style instead of a raw hex array.
+      let palette = null;
+      try {
+        if (client.brand_colors_json) {
+          const parsed = JSON.parse(client.brand_colors_json);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            palette = parsed;
+          }
+        }
+      } catch {}
+      let cues = [];
+      try {
+        if (client.industry_cues_json) {
+          const parsed = JSON.parse(client.industry_cues_json);
+          if (Array.isArray(parsed)) cues = parsed.filter(Boolean);
+        }
+      } catch {}
+      const flatHexes = palette
+        ? [palette.primary, palette.secondary, palette.accent, palette.neutral, palette.background].filter(Boolean)
+        : [];
+
       setForm(prev => ({
         ...prev,
         businessName: client.name || '',
@@ -138,6 +167,12 @@ export default function BuildForm({ onBuildStarted }) {
         industryText: client.industry || '',
         businessDescription: client.brand_description || '',
         targetAudience: client.target_audience || '',
+        brandColors: flatHexes.length ? flatHexes : prev.brandColors,
+        brandPalette: palette,
+        brandPersonality: client.brand_personality || '',
+        brandMoodDescription: client.brand_mood_description || '',
+        industryCues: cues,
+        recommendedSurfaceStyle: client.recommended_surface_style || '',
       }));
       // Split contact name into first/last if available
       if (client.contact_name) {
@@ -259,6 +294,15 @@ export default function BuildForm({ onBuildStarted }) {
       formData.append('business_description', form.businessDescription);
       formData.append('target_audience', form.targetAudience);
       formData.append('brand_colors', JSON.stringify(form.brandColors || []));
+      if (form.brandPalette) {
+        formData.append('brand_palette_json', JSON.stringify(form.brandPalette));
+      }
+      if (form.brandPersonality) formData.append('brand_personality', form.brandPersonality);
+      if (form.brandMoodDescription) formData.append('brand_mood_description', form.brandMoodDescription);
+      if (Array.isArray(form.industryCues) && form.industryCues.length) {
+        formData.append('industry_cues_json', JSON.stringify(form.industryCues));
+      }
+      if (form.recommendedSurfaceStyle) formData.append('recommended_surface_style', form.recommendedSurfaceStyle);
       formData.append('logo', logoFile);
 
       const res = await fetch('/api/builds', {
