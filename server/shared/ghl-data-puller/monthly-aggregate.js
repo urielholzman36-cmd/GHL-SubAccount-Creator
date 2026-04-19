@@ -60,11 +60,19 @@ export function buildMonthlyAggregate(raw, month) {
   };
 }
 
-// Convenience: fetch raw data via the provided puller and aggregate for the given month.
-// The `puller` is either mockPuller or realPuller (both expose a `pull(locationId, token)` method).
-export async function fetchMonthlyAggregate(puller, locationId, token, month) {
-  // Pull a wide window so both `month` and `priorMonth(month)` are fully covered.
-  const sinceIso = `${priorMonth(month)}-01T00:00:00Z`;
-  const raw = await puller.pull({ locationId, token, sinceIso });
+function monthBoundary(yearMonth, offset = 0) {
+  const [y, m] = yearMonth.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + offset, 1));
+  return d.toISOString();
+}
+
+// Convenience: fetch raw data via the hub's pullAll entrypoint (which auto-selects
+// mock vs. real puller) and aggregate for the given month. Window covers prior
+// month → next month so MoM deltas are computable.
+export async function fetchMonthlyAggregate(locationId, token, month) {
+  const { pullAll } = await import('./index.js');
+  const from = monthBoundary(priorMonth(month), 0);
+  const to = monthBoundary(month, 1);
+  const raw = await pullAll(locationId, { from, to }, { token });
   return buildMonthlyAggregate(raw, month);
 }
