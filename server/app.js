@@ -20,6 +20,7 @@ import { createSettingsRouter } from './routes/settings.js';
 import { createHealthRouter } from './modules/health/routes.js';
 import { createKbRouter } from './modules/kb/routes.js';
 import { createProposalsRouter } from './modules/proposals/routes.js';
+import { createPagePromptsRouter } from './routes/page-prompts.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
@@ -139,6 +140,7 @@ app.use('/api/settings', requireAuth, createSettingsRouter());
 app.use('/api/health', requireAuth, createHealthRouter(db));
 app.use('/api/kb', requireAuth, createKbRouter(db));
 app.use('/api/proposals', requireAuth, createProposalsRouter(db));
+app.use('/api/page-prompts', requireAuth, createPagePromptsRouter(db));
 
 // ─── Static files (production) ───────────────────────────────────────────────
 const distPath = join(projectRoot, 'dist');
