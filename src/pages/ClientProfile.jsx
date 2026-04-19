@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import CollapsibleSection from '../components/CollapsibleSection';
 import logoSrc from '../lib/logoSrc';
 import PagePromptHistory from '../components/PagePromptHistory';
+import ReportHistory from '../components/ReportHistory';
 
 const DEFAULT_PILLARS = ['PAIN', 'SOLUTION', 'AUTHORITY', 'PROOF', 'CTA'];
 const PLATFORM_OPTIONS = ['facebook', 'instagram', 'linkedin', 'tiktok'];
@@ -478,6 +479,9 @@ export default function ClientProfile() {
 
         {/* Generated Pages history — only shown when editing an existing client */}
         {!isNew && <PagePromptHistory clientId={id} />}
+
+        {/* Reports history — only shown when editing an existing client */}
+        {!isNew && <ReportHistory clientId={id} />}
 
         {/* Actions */}
         <div className="flex gap-3 pb-8">
