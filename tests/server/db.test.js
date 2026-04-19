@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import { createTestDb } from '../setup.js';
 import { initializeDb } from '../../server/db/index.js';
 import * as queries from '../../server/db/queries.js';
@@ -225,5 +225,25 @@ describe('Database', () => {
       expect(cols).toContain('terms_url');
       expect(cols).toContain('faq_url');
     });
+  });
+});
+
+describe('page_prompts migration', () => {
+  let db;
+  beforeAll(async () => {
+    const { createClient } = await import('@libsql/client');
+    db = createClient({ url: 'file::memory:' });
+    await initializeDb(db);
+  });
+
+  it('creates page_prompts table with expected columns', async () => {
+    const info = await db.execute("PRAGMA table_info(page_prompts)");
+    const cols = info.rows.map((r) => r.name);
+    expect(cols).toEqual(expect.arrayContaining([
+      'id', 'client_id', 'build_id', 'page_type',
+      'page_name', 'page_slug', 'user_notes',
+      'generated_prompt', 'brand_snapshot_json',
+      'created_at', 'updated_at',
+    ]));
   });
 });

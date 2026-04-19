@@ -116,6 +116,47 @@ export async function initializeDb(db) {
     }
   }
 
+  // Users table for multi-user auth
+  await db.executeMultiple(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      display_name TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
+  // Admin role migration
+  const userColsResult = await db.execute("PRAGMA table_info(users)");
+  const userCols = userColsResult.rows.map((c) => c.name);
+  if (!userCols.includes('is_admin')) {
+    await db.execute('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0');
+  }
+
+  // M3 Social Planner tables
+  await initializeSocialTables(db);
+
+  // Page Prompt Generator (M3.5)
+  await db.executeMultiple(`
+    CREATE TABLE IF NOT EXISTS page_prompts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id INTEGER NOT NULL,
+      build_id INTEGER,
+      page_type TEXT NOT NULL,
+      page_name TEXT NOT NULL,
+      page_slug TEXT,
+      user_notes TEXT,
+      generated_prompt TEXT,
+      brand_snapshot_json TEXT,
+      created_at DATETIME DEFAULT (datetime('now')),
+      updated_at DATETIME DEFAULT (datetime('now')),
+      FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+      FOREIGN KEY (build_id) REFERENCES builds(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_page_prompts_client ON page_prompts(client_id);
+  `);
+
   // Unified Command Center client columns
   const ccCols = [
     ['contact_name', 'TEXT'],
@@ -149,27 +190,6 @@ export async function initializeDb(db) {
       await db.execute(`ALTER TABLE clients ADD COLUMN ${name} ${type}`);
     }
   }
-
-  // Users table for multi-user auth
-  await db.executeMultiple(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      display_name TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-  `);
-
-  // Admin role migration
-  const userColsResult = await db.execute("PRAGMA table_info(users)");
-  const userCols = userColsResult.rows.map((c) => c.name);
-  if (!userCols.includes('is_admin')) {
-    await db.execute('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0');
-  }
-
-  // M3 Social Planner tables
-  await initializeSocialTables(db);
 
   // Campaign-level content strategy columns (additive)
   const campColsResult = await db.execute("PRAGMA table_info(campaigns)");
