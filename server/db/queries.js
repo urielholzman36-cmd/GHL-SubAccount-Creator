@@ -111,3 +111,58 @@ export async function getSetting(db, key) {
   const result = await db.execute({ sql: 'SELECT value FROM settings WHERE key = ?', args: [key] });
   return result.rows[0] ? result.rows[0].value : null;
 }
+
+export async function createPagePrompt(db, data) {
+  const {
+    client_id, build_id = null, page_type, page_name,
+    page_slug = null, user_notes = null,
+    generated_prompt = null, brand_snapshot_json = null,
+  } = data;
+  const result = await db.execute({
+    sql: `INSERT INTO page_prompts
+      (client_id, build_id, page_type, page_name, page_slug, user_notes, generated_prompt, brand_snapshot_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      RETURNING id`,
+    args: [client_id, build_id, page_type, page_name, page_slug, user_notes, generated_prompt, brand_snapshot_json],
+  });
+  return { id: result.rows[0].id };
+}
+
+export async function listPagePromptsByClient(db, clientId) {
+  const result = await db.execute({
+    sql: `SELECT * FROM page_prompts WHERE client_id = ? ORDER BY created_at DESC`,
+    args: [clientId],
+  });
+  return result.rows;
+}
+
+export async function getPagePromptById(db, id) {
+  const result = await db.execute({
+    sql: `SELECT * FROM page_prompts WHERE id = ?`,
+    args: [id],
+  });
+  return result.rows[0] || null;
+}
+
+export async function updatePagePrompt(db, id, fields) {
+  const allowed = ['page_type', 'page_name', 'page_slug', 'user_notes', 'generated_prompt', 'brand_snapshot_json', 'build_id'];
+  const setClauses = [];
+  const args = [];
+  for (const key of allowed) {
+    if (key in fields) {
+      setClauses.push(`${key} = ?`);
+      args.push(fields[key]);
+    }
+  }
+  if (!setClauses.length) return;
+  setClauses.push(`updated_at = datetime('now')`);
+  args.push(id);
+  await db.execute({
+    sql: `UPDATE page_prompts SET ${setClauses.join(', ')} WHERE id = ?`,
+    args,
+  });
+}
+
+export async function deletePagePrompt(db, id) {
+  await db.execute({ sql: `DELETE FROM page_prompts WHERE id = ?`, args: [id] });
+}
