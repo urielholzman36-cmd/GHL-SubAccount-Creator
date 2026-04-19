@@ -26,6 +26,7 @@ import NewProposal from './pages/proposals/NewProposal';
 import ImportClientResearch from './pages/ImportClientResearch';
 import CampaignPreview from './pages/CampaignPreview';
 import PageGenerator from './pages/PageGenerator';
+import ReportsList from './pages/reports/ReportsList';
 import Sidebar from './components/Sidebar';
 import Spinner from './components/Spinner';
 
@@ -70,7 +71,7 @@ function ProtectedLayout() {
             <Route path="/social/campaign/:id/import" element={<ManusImport />} />
             <Route path="/health" element={<HealthDashboard />} />
             <Route path="/health/:id" element={<ClientHealth />} />
-            <Route path="/reports" element={<ComingSoon />} />
+            <Route path="/reports" element={<ReportsList />} />
             <Route path="/pages" element={<PageGenerator />} />
             <Route path="/pages/:id" element={<PageGenerator />} />
 
