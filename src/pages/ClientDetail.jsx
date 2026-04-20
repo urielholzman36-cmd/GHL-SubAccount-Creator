@@ -38,8 +38,13 @@ export default function ClientDetail() {
   const [briefOpen, setBriefOpen] = useState(false);
   const [regenBrief, setRegenBrief] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [editDraft, setEditDraft] = useState('');
+  const [saving, setSaving] = useState(false);
 
   async function handleGenerateBrief() {
+    if (isDirty && !window.confirm('You have unsaved edits to the brief. Generate anyway and discard them?')) {
+      return;
+    }
     const alreadyExists = !!client?.client_brief;
     if (alreadyExists) {
       const ok = window.confirm(
@@ -62,6 +67,7 @@ export default function ClientDetail() {
         ...c,
         client_brief: data.brief,
         client_brief_generated_at: data.generated_at,
+        client_brief_status: 'draft',
       }));
       setBriefOpen(true);
     } catch (err) {
@@ -84,6 +90,33 @@ export default function ClientDetail() {
       setTimeout(() => setCopied(false), 1800);
     } catch {
       alert('Copy failed — select the text manually.');
+    }
+  }
+
+  async function handleSaveBrief() {
+    if (!client || !editDraft.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/clients/${id}/brief`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_brief: editDraft }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(`Save failed: ${data.details || data.error || res.status}`);
+        return;
+      }
+      setClient((c) => ({
+        ...c,
+        client_brief: editDraft,
+        client_brief_generated_at: data.generated_at,
+        client_brief_status: 'final',
+      }));
+    } catch (err) {
+      alert(`Save failed: ${err?.message || 'network error'}`);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -115,6 +148,13 @@ export default function ClientDetail() {
       .then(data => data?.latest && setHealth(data.latest))
       .catch(() => {});
   }, [id]);
+
+  useEffect(() => {
+    setEditDraft(client?.client_brief || '');
+  }, [client?.client_brief]);
+
+  const isDirty = editDraft !== (client?.client_brief || '');
+  const briefStatus = client?.client_brief_status || 'draft';
 
   if (!client) {
     return <div className="p-6 text-white/30 text-sm">Loading client...</div>;
@@ -229,9 +269,18 @@ export default function ClientDetail() {
               One-time, authoritative brief shared with Manus. 10 structured sections covering who the brand is, how it sounds, and how its images should look. Regenerate only if the client's fundamentals change.
             </p>
             {client.client_brief_generated_at && (
-              <p className="text-[11px] text-white/30 mt-1">
-                Last generated {new Date(client.client_brief_generated_at).toLocaleString()} · filename <code className="text-white/50">{(client.name || 'client').replace(/[^\w.-]/g,'').replace(/[.-]+/g,'_')}_company_master_brief.md</code>
-              </p>
+              <div className="flex items-center gap-2 text-sm text-white/60 mt-1">
+                <span className="text-[11px] text-white/30">Last generated {new Date(client.client_brief_generated_at).toLocaleString()}</span>
+                <span className={`px-2 py-0.5 rounded text-xs ${
+                  briefStatus === 'final'
+                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                    : 'bg-white/10 text-white/60 border border-white/10'
+                }`}>
+                  {briefStatus === 'final' ? 'Final' : 'Draft'}
+                </span>
+                <span className="text-white/30">·</span>
+                <code className="text-white/50 text-xs">{(client.name || 'client').replace(/[^\w.-]/g,'').replace(/[.-]+/g,'_')}_company_master_brief.md</code>
+              </div>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -252,13 +301,6 @@ export default function ClientDetail() {
               </>
             )}
             <button
-              onClick={() => setBriefOpen((o) => !o)}
-              disabled={!client.client_brief}
-              className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 text-sm hover:bg-white/10 transition-all disabled:opacity-40"
-            >
-              {briefOpen ? 'Hide' : 'View'}
-            </button>
-            <button
               onClick={handleGenerateBrief}
               disabled={regenBrief}
               className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40"
@@ -267,10 +309,25 @@ export default function ClientDetail() {
             </button>
           </div>
         </div>
-        {briefOpen && client.client_brief && (
-          <pre className="mt-4 p-4 rounded-lg bg-black/40 border border-white/5 text-white/80 text-xs leading-relaxed whitespace-pre-wrap overflow-x-auto max-h-[480px] overflow-y-auto font-mono">
-{client.client_brief}
-          </pre>
+        {client.client_brief && (
+          <div className="mt-3 space-y-2">
+            <textarea
+              value={editDraft}
+              onChange={(e) => setEditDraft(e.target.value)}
+              spellCheck={false}
+              className="w-full min-h-[400px] bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white/85 text-sm font-mono focus:outline-none focus:border-purple-500/50"
+            />
+            <div className="flex items-center gap-2 justify-end">
+              {isDirty && <span className="text-xs text-amber-400">Unsaved changes</span>}
+              <button
+                onClick={handleSaveBrief}
+                disabled={saving || !isDirty}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium disabled:opacity-40"
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
         )}
         {!client.client_brief && !regenBrief && (
           <p className="mt-3 text-xs text-white/40">
