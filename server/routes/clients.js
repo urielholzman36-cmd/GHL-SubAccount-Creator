@@ -361,11 +361,35 @@ export function createClientsRouter(db) {
       await socialQueries.updateClient(db, req.params.id, {
         client_brief: brief,
         client_brief_generated_at: now,
+        client_brief_status: 'draft',
       });
       res.json({ ok: true, brief, generated_at: now, filename: briefFilename(client.name) });
     } catch (err) {
       console.error('generate-brief failed:', err);
       res.status(500).json({ error: 'Brief generation failed', details: err.message });
+    }
+  });
+
+  // PUT /:id/brief — save operator edits to the Company Master Brief.
+  // Flips status to 'final'. Body: { client_brief: "<markdown>" }.
+  router.put('/:id/brief', async (req, res) => {
+    try {
+      const client = await socialQueries.getClient(db, req.params.id);
+      if (!client) return res.status(404).json({ error: 'Client not found' });
+      const { client_brief } = req.body || {};
+      if (typeof client_brief !== 'string' || !client_brief.trim()) {
+        return res.status(400).json({ error: 'client_brief (string) required' });
+      }
+      const now = new Date().toISOString();
+      await socialQueries.updateClient(db, req.params.id, {
+        client_brief,
+        client_brief_generated_at: now,
+        client_brief_status: 'final',
+      });
+      res.json({ ok: true, status: 'final', generated_at: now });
+    } catch (err) {
+      console.error('save-brief failed:', err);
+      res.status(500).json({ error: 'Save brief failed', details: err.message });
     }
   });
 
