@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 import StatusBadge from '../components/health/StatusBadge.jsx';
 import logoSrc from '../lib/logoSrc';
 
@@ -40,6 +41,7 @@ export default function ClientDetail() {
   const [copied, setCopied] = useState(false);
   const [editDraft, setEditDraft] = useState('');
   const [saving, setSaving] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
 
   async function handleGenerateBrief() {
     if (isDirty && !window.confirm('You have unsaved edits to the brief. Generate anyway and discard them?')) {
@@ -80,6 +82,11 @@ export default function ClientDetail() {
   function handleDownloadBrief() {
     if (!client?.client_brief) return;
     window.location.href = `/api/clients/${id}/brief.md`;
+  }
+
+  function handleDownloadBriefDocx() {
+    if (!client?.client_brief) return;
+    window.location.href = `/api/clients/${id}/brief.docx`;
   }
 
   async function handleCopyBrief() {
@@ -284,22 +291,6 @@ export default function ClientDetail() {
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {client.client_brief && (
-              <>
-                <button
-                  onClick={handleCopyBrief}
-                  className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 text-sm hover:bg-white/10 transition-all"
-                >
-                  {copied ? 'Copied ✓' : 'Copy'}
-                </button>
-                <button
-                  onClick={handleDownloadBrief}
-                  className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white/70 text-sm hover:bg-white/10 transition-all"
-                >
-                  Download .md
-                </button>
-              </>
-            )}
             <button
               onClick={handleGenerateBrief}
               disabled={regenBrief}
@@ -311,12 +302,46 @@ export default function ClientDetail() {
         </div>
         {client.client_brief && (
           <div className="mt-3 space-y-2">
-            <textarea
-              value={editDraft}
-              onChange={(e) => setEditDraft(e.target.value)}
-              spellCheck={false}
-              className="w-full min-h-[400px] bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white/85 text-sm font-mono focus:outline-none focus:border-purple-500/50"
-            />
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setPreviewMode((v) => !v)}
+                className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs hover:bg-white/10"
+              >
+                {previewMode ? 'Edit' : 'Preview'}
+              </button>
+              <button
+                onClick={handleCopyBrief}
+                className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs hover:bg-white/10"
+              >
+                {copied ? 'Copied!' : 'Copy MD'}
+              </button>
+              <button
+                onClick={handleDownloadBrief}
+                className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs hover:bg-white/10"
+              >
+                Download .md
+              </button>
+              <button
+                onClick={handleDownloadBriefDocx}
+                className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs hover:bg-white/10"
+              >
+                Download .docx
+              </button>
+            </div>
+
+            {previewMode ? (
+              <div className="prose prose-invert max-w-none bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-sm min-h-[400px] overflow-auto">
+                <ReactMarkdown>{editDraft}</ReactMarkdown>
+              </div>
+            ) : (
+              <textarea
+                value={editDraft}
+                onChange={(e) => setEditDraft(e.target.value)}
+                spellCheck={false}
+                className="w-full min-h-[400px] bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white/85 text-sm font-mono focus:outline-none focus:border-purple-500/50"
+              />
+            )}
+
             <div className="flex items-center gap-2 justify-end">
               {isDirty && <span className="text-xs text-amber-400">Unsaved changes</span>}
               <button
