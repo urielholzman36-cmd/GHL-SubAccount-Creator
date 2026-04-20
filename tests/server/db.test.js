@@ -247,3 +247,19 @@ describe('page_prompts migration', () => {
     ]));
   });
 });
+
+describe('client_brief_status column migration', () => {
+  let db;
+  beforeAll(async () => {
+    const { createClient } = await import('@libsql/client');
+    db = createClient({ url: 'file::memory:' });
+    await initializeDb(db);
+  });
+
+  it('adds client_brief_status to clients with default draft', async () => {
+    const info = await db.execute('PRAGMA table_info(clients)');
+    const col = info.rows.find((r) => r.name === 'client_brief_status');
+    expect(col).toBeTruthy();
+    expect(col.dflt_value).toMatch(/draft/);
+  });
+});

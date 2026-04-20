@@ -183,6 +183,7 @@ export async function initializeDb(db) {
     ['recommended_surface_style', 'TEXT'],
     ['client_brief', 'TEXT'],
     ['client_brief_generated_at', 'DATETIME'],
+    ['client_brief_status', "TEXT DEFAULT 'draft'"],
   ];
   const ccColsResult = await db.execute("PRAGMA table_info(clients)");
   const ccExisting = ccColsResult.rows.map(c => c.name);
