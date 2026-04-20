@@ -6,7 +6,8 @@ import { fileURLToPath } from 'url';
 import * as socialQueries from '../db/social-queries.js';
 import { encrypt } from '../services/crypto.js';
 import { analyzeBrand } from '../services/brand-analyzer.js';
-import { generateClientBrief, briefFilename } from '../services/brief-generator.js';
+import { generateClientBrief, briefFilename, briefDocxFilename } from '../services/brief-generator.js';
+import { buildBriefDocx } from '../services/brief-docx.js';
 import { extractClientFromResearch } from '../services/client-extractor.js';
 import { v2 as cloudinary } from 'cloudinary';
 import AdmZip from 'adm-zip';
@@ -402,6 +403,22 @@ export function createClientsRouter(db) {
     res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${briefFilename(client.name)}"`);
     res.send(client.client_brief);
+  });
+
+  // GET /:id/brief.docx — stream a Word-formatted export of the current brief.
+  router.get('/:id/brief.docx', async (req, res) => {
+    try {
+      const client = await socialQueries.getClient(db, req.params.id);
+      if (!client) return res.status(404).json({ error: 'Client not found' });
+      if (!client.client_brief) return res.status(404).json({ error: 'No brief generated for this client' });
+      const buf = await buildBriefDocx(client.client_brief);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="${briefDocxFilename(client.name)}"`);
+      res.send(buf);
+    } catch (err) {
+      console.error('brief.docx failed:', err);
+      res.status(500).json({ error: 'DOCX export failed', details: err.message });
+    }
   });
 
   // DELETE /:id — delete client and all its campaigns
