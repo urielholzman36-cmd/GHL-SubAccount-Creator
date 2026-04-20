@@ -1,5 +1,20 @@
 import PDFDocument from 'pdfkit';
-import { BRAND } from '../../proposals/services/brand.js';
+import sharp from 'sharp';
+import { BRAND, getLogoBuffer } from '../../proposals/services/brand.js';
+
+let smallLogoPromise = null;
+function getSmallLogo() {
+  if (smallLogoPromise) return smallLogoPromise;
+  smallLogoPromise = (async () => {
+    try {
+      const full = getLogoBuffer();
+      return await sharp(full).resize({ width: 400 }).png({ compressionLevel: 9 }).toBuffer();
+    } catch {
+      return null;
+    }
+  })();
+  return smallLogoPromise;
+}
 
 function monthLabel(yearMonth) {
   const [y, m] = yearMonth.split('-').map(Number);
@@ -12,22 +27,35 @@ function formatDateShort(date) {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function drawCover(doc, { clientName, month, generatedAt }) {
+function drawCover(doc, { clientName, month, generatedAt, logo }) {
   doc.save();
-  doc.rect(0, 0, doc.page.width, doc.page.height).fill(BRAND.colors.navy);
-  doc.fillColor(BRAND.colors.white);
+  // White cover with a navy band at the bottom
+  doc.rect(0, 0, doc.page.width, doc.page.height).fill(BRAND.colors.white);
 
-  doc.font(BRAND.fonts.heading).fontSize(14)
-    .text('VO360 PERFORMANCE REPORT', 54, 120, { align: 'left' });
+  // Logo on white
+  if (logo) {
+    try { doc.image(logo, 54, 80, { fit: [220, 130], align: 'left', valign: 'top' }); } catch { /* skip */ }
+  }
 
-  doc.font(BRAND.fonts.heading).fontSize(34)
-    .text(clientName, 54, 200, { width: doc.page.width - 108 });
+  // Orange divider
+  doc.rect(54, 260, 60, 4).fill(BRAND.colors.orange);
 
-  doc.font(BRAND.fonts.heading).fontSize(22).fillColor(BRAND.colors.orange)
-    .text(monthLabel(month), 54, 260);
+  doc.font(BRAND.fonts.heading).fontSize(13).fillColor(BRAND.colors.bodyText)
+    .text('MONTHLY PERFORMANCE REPORT', 54, 280, { characterSpacing: 2 });
 
+  doc.font(BRAND.fonts.heading).fontSize(42).fillColor(BRAND.colors.navy)
+    .text(clientName, 54, 320, { width: doc.page.width - 108 });
+
+  doc.font(BRAND.fonts.heading).fontSize(26).fillColor(BRAND.colors.orange)
+    .text(monthLabel(month), 54, 395);
+
+  // Navy footer band
+  const bandY = doc.page.height - 100;
+  doc.rect(0, bandY, doc.page.width, 100).fill(BRAND.colors.navy);
+  doc.font(BRAND.fonts.heading).fontSize(12).fillColor(BRAND.colors.white)
+    .text('VO360 — Your Intelligent Execution Partner', 54, bandY + 30, { characterSpacing: 1 });
   doc.font(BRAND.fonts.body).fontSize(10).fillColor(BRAND.colors.white)
-    .text(`Prepared by VO360  ·  Generated ${formatDateShort(generatedAt)}`, 54, doc.page.height - 80);
+    .text(`Prepared by VO360  ·  Generated ${formatDateShort(generatedAt)}`, 54, bandY + 55);
 
   doc.restore();
 }
@@ -123,6 +151,7 @@ function drawRecommendations(doc, narrative) {
 }
 
 export async function buildReportPdf({ clientName, month, generatedAt, data, narrative }) {
+  const logo = await getSmallLogo();
   return await new Promise((resolve, reject) => {
     try {
       const chunks = [];
@@ -135,7 +164,7 @@ export async function buildReportPdf({ clientName, month, generatedAt, data, nar
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      drawCover(doc, { clientName, month, generatedAt });
+      drawCover(doc, { clientName, month, generatedAt, logo });
       drawExecSummary(doc, narrative);
       drawLeadPerformance(doc, data);
       drawAppointments(doc, data);
