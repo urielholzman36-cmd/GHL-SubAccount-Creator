@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 export const WATCH_ROOT = path.join(os.homedir(), 'Desktop', 'Manus-Social Planner ');
-export const OUTPUT_ROOT = path.join(os.homedir(), 'Desktop', 'CSV Ready Zips');
+export const OUTPUT_ROOT = path.join(os.homedir(), 'Desktop', 'CSV Ready');
 export const LOG_DIR = path.join(OUTPUT_ROOT, '_logs');
 export const DEFAULT_POSTING_TIME = '09:00:00';
 

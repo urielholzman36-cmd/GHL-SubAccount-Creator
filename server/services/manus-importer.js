@@ -251,7 +251,7 @@ export function parseManifestMd(filepath) {
   };
   const idxDay = colIdx('day');
   const idxPostId = colIdx('postid', 'post_id', 'id');
-  const idxType = colIdx('posttype', 'post_type', 'type');
+  const idxType = colIdx('posttype', 'post_type', 'type', 'format');
   const idxConcept = colIdx('concepttitle', 'concept_title', 'concept', 'title');
   const idxFilename = colIdx('filename', 'asset', 'file');
   const idxRole = colIdx('sliderole', 'slide_role', 'role', 'slide');

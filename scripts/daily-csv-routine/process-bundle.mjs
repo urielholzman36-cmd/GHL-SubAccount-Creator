@@ -15,7 +15,7 @@ import { ensureMdFromDocx } from './lib/docx-converter.mjs';
 import { uploadAll } from './lib/cloudinary-uploader.mjs';
 import { buildGhlCsv } from './lib/csv-builder.mjs';
 import { buildSummary } from './lib/summary-builder.mjs';
-import { outputCsvName } from './lib/detector.mjs';
+import { outputCsvName, outputRunFolder } from './lib/detector.mjs';
 import { parseManifestMd, parsePostKitsMd, parseAssetListMd } from '../../server/services/manus-importer.js';
 
 function loadEnvFrom(dotenvPath) {
@@ -164,7 +164,7 @@ export async function processBundle({ clientName, sourcePath, year, month, start
     const csv = buildGhlCsv(csvPosts, { startDate, postingTime: client.posting_time || DEFAULT_POSTING_TIME });
     const summary = buildSummary(csvPosts, { client: clientName, year, month, startDate, warnings });
 
-    const outDir = path.join(OUTPUT_ROOT, clientName);
+    const outDir = path.join(OUTPUT_ROOT, clientName, outputRunFolder(year, month));
     fs.mkdirSync(outDir, { recursive: true });
     const csvFile = path.join(outDir, outputCsvName(clientName, year, month));
     const summaryFile = path.join(outDir, `${clientName}_${MONTHS[month - 1]}_${year}_Summary.md`);

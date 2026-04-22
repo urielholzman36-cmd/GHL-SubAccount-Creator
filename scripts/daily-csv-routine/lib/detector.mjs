@@ -10,6 +10,10 @@ export function outputCsvName(client, year, month) {
   return `${client}_${MONTHS[month - 1]}_${year}_GHL_Schedule.csv`;
 }
 
+export function outputRunFolder(year, month) {
+  return `${MONTHS[month - 1]}_${year}`;
+}
+
 function listDir(p) {
   try { return fs.readdirSync(p, { withFileTypes: true }); }
   catch { return []; }
@@ -36,7 +40,8 @@ export function detectPendingBundles(watchRoot, outputRoot) {
       const parsed = parseMonthFromPath(ent.name);
       if (!parsed) continue;
       const csvName = outputCsvName(clientName, parsed.year, parsed.month);
-      if (fs.existsSync(path.join(outputSubdir, csvName))) continue;
+      const runFolder = outputRunFolder(parsed.year, parsed.month);
+      if (fs.existsSync(path.join(outputSubdir, runFolder, csvName))) continue;
       pending.push({
         client: clientName,
         year: parsed.year,
