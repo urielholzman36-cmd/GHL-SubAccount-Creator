@@ -49,7 +49,14 @@ function ClientCard({ row }) {
     >
       <div className="flex items-start justify-between mb-4">
         <div className="min-w-0">
-          <p className="text-white font-semibold truncate">{row.name}</p>
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="text-white font-semibold truncate">{row.name}</p>
+            {row.has_ghl_api_key && row.location_id ? (
+              <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-[#2dd4bf]/10 text-[#2dd4bf] border border-[#2dd4bf]/20 uppercase tracking-wider">Live</span>
+            ) : (
+              <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-white/40 border border-white/10 uppercase tracking-wider">Mock</span>
+            )}
+          </div>
           <p className="text-white/30 text-xs truncate">{row.industry || 'No industry set'}</p>
         </div>
         <StatusBadge status={row.status} />

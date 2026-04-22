@@ -152,11 +152,16 @@ export default function NewProposal() {
 
           <button
             onClick={handleGenerate}
-            disabled={generating || !!result}
+            disabled={generating}
             className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] text-white text-sm font-medium hover:opacity-90 disabled:opacity-40"
           >
-            {generating ? 'Generating PDFs…' : result ? 'Generated ✓' : 'Generate Proposal + Contract'}
+            {generating ? 'Generating PDFs…' : result ? 'Regenerate with edits' : 'Generate Proposal + Contract'}
           </button>
+          {result && (
+            <p className="text-[11px] text-white/40 mt-2">
+              Edit any field above, then click Regenerate. Your current PDFs will be replaced with a new proposal.
+            </p>
+          )}
         </div>
 
         <div className="p-5 rounded-xl bg-white/[0.02] border border-white/10 h-fit">

@@ -15,6 +15,7 @@ export function createHealthRouter(db) {
     try {
       const r = await db.execute(`
         SELECT c.id, c.name, c.industry, c.logo_path, c.location_id,
+               CASE WHEN c.ghl_api_key_encrypted IS NOT NULL AND c.ghl_api_key_encrypted != '' THEN 1 ELSE 0 END AS has_ghl_api_key,
                h.score, h.status, h.calculated_at,
                h.metric_new_leads, h.metric_pipeline_movement,
                h.metric_conversation_activity, h.metric_response_time,

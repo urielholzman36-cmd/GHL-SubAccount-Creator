@@ -15,6 +15,16 @@ export default function ProposalsList() {
     return () => { cancelled = true; };
   }, []);
 
+  async function handleDelete(p) {
+    if (!confirm(`Delete proposal for ${p.business_name}? This can't be undone.`)) return;
+    const res = await fetch(`/api/proposals/${p.id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setProposals((list) => list.filter((x) => x.id !== p.id));
+    } else {
+      alert('Delete failed.');
+    }
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return proposals;
@@ -119,6 +129,12 @@ export default function ProposalsList() {
                     >
                       Contract
                     </a>
+                    <button
+                      onClick={() => handleDelete(p)}
+                      className="inline-block px-2.5 py-1 text-xs text-[#ef4444] hover:underline"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
