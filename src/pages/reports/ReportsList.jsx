@@ -97,6 +97,22 @@ export default function ReportsList() {
     }
   }
 
+  async function openReport(id) {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/reports/${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Load failed');
+      setReport(data);
+      if (data.month && data.month !== month) setMonth(data.month);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function deleteReport(id) {
     if (!confirm('Delete this report (including the stored PDF)?')) return;
     const res = await fetch(`/api/reports/${id}`, { method: 'DELETE' });
@@ -194,7 +210,8 @@ export default function ReportsList() {
                   <p className="text-sm text-white/80">{r.month}</p>
                   <p className="text-xs text-white/40">{r.status} · {new Date(r.created_at).toLocaleDateString()}</p>
                 </div>
-                <div className="flex gap-2 shrink-0">
+                <div className="flex gap-3 shrink-0">
+                  <button onClick={() => openReport(r.id)} className="text-xs text-cyan-300 hover:underline">Open</button>
                   {r.pdf_url && <a href={r.pdf_url} target="_blank" rel="noreferrer" className="text-xs text-cyan-300 hover:underline">Download</a>}
                   <button onClick={() => deleteReport(r.id)} className="text-xs text-red-400 hover:underline">Delete</button>
                 </div>
