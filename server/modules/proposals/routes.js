@@ -15,9 +15,13 @@ import { sanitizeFilename, formatDate } from './services/pdf-utils.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = path.resolve(__dirname, 'package-config.json');
 
+let _cachedConfig = null;
 function loadConfig() {
-  const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
-  return JSON.parse(raw);
+  if (!_cachedConfig) {
+    const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
+    _cachedConfig = JSON.parse(raw);
+  }
+  return _cachedConfig;
 }
 
 function uploadPdf(buffer, publicId) {

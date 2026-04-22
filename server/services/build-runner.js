@@ -285,10 +285,25 @@ export class BuildRunner {
       err.skipRetry = true;
       throw err;
     }
-    const projectRoot = path.resolve(__dirname, '..', '..');
-    const absolutePath = path.resolve(projectRoot, build.logo_path);
-    const fileBuffer = fs.readFileSync(absolutePath);
-    const filename = path.basename(absolutePath);
+
+    let fileBuffer;
+    let filename;
+    if (/^https?:\/\//i.test(build.logo_path)) {
+      const resp = await fetch(build.logo_path);
+      if (!resp.ok) {
+        const err = new Error(`Fetch logo from Cloudinary failed: HTTP ${resp.status}`);
+        err.skipRetry = true;
+        throw err;
+      }
+      fileBuffer = Buffer.from(await resp.arrayBuffer());
+      filename = path.basename(new URL(build.logo_path).pathname) || `${build.id}.png`;
+    } else {
+      const projectRoot = path.resolve(__dirname, '..', '..');
+      const absolutePath = path.resolve(projectRoot, build.logo_path);
+      fileBuffer = fs.readFileSync(absolutePath);
+      filename = path.basename(absolutePath);
+    }
+
     const ext = path.extname(filename).toLowerCase().replace('.', '');
     const mimeMap = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml', webp: 'image/webp' };
     const mimeType = mimeMap[ext] || 'application/octet-stream';

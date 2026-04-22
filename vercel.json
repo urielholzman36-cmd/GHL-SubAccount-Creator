@@ -6,7 +6,7 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 300,
-      "includeFiles": "dist/**"
+      "includeFiles": "{dist/**,server/assets/**,server/modules/proposals/package-config.json}"
     }
   }
 }

@@ -7,26 +7,30 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { v2 as cloudinary } from 'cloudinary';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const LOGOS_DIR = process.env.VERCEL
-  ? '/tmp/logos'
-  : path.resolve(__dirname, '../../data/logos');
-try { if (!fs.existsSync(LOGOS_DIR)) fs.mkdirSync(LOGOS_DIR, { recursive: true }); } catch (e) { /* read-only FS */ }
 
-const logoStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, LOGOS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase() || '.png';
-    cb(null, `${req.buildId}${ext}`);
-  },
-});
+function slugify(s) {
+  return String(s || 'build').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'build';
+}
+
+function uploadLogoBufferToCloudinary(buffer, slug) {
+  const publicId = `vo360-logos/${slug}-${Date.now()}`;
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { public_id: publicId, resource_type: 'image', overwrite: true },
+      (err, result) => err ? reject(err) : resolve(result.secure_url),
+    );
+    stream.end(buffer);
+  });
+}
 
 const uploadLogo = multer({
-  storage: logoStorage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml', 'image/webp'];
     if (allowed.includes(file.mimetype)) cb(null, true);
     else cb(new Error(`Unsupported logo type: ${file.mimetype}`));
   },
@@ -197,7 +201,15 @@ export function createBuildsRouter(db) {
         await queries.insertBuild(db, build);
         await queries.createBuildSteps(db, id);
 
-        const logoPath = req.file ? path.relative(path.resolve(__dirname, '../..'), req.file.path) : null;
+        let logoPath = null;
+        if (req.file) {
+          try {
+            logoPath = await uploadLogoBufferToCloudinary(req.file.buffer, slugify(build.business_name));
+          } catch (err) {
+            console.error(`[build ${id}] cloudinary logo upload failed:`, err.message);
+            throw new Error('Logo upload failed — check Cloudinary credentials');
+          }
+        }
         await db.execute({
           sql: `UPDATE builds SET industry_text = ?, business_description = ?, target_audience = ?, logo_path = ?, brand_colors = ?,
                 brand_palette_json = ?, brand_personality = ?, brand_mood_description = ?, industry_cues_json = ?, recommended_surface_style = ?
@@ -222,7 +234,7 @@ export function createBuildsRouter(db) {
         if (!brandColorsJson && req.file) {
           try {
             const { extractPalette } = await import('../services/brand-analyzer.js');
-            const palette = await extractPalette(req.file.path);
+            const palette = await extractPalette(req.file.buffer);
             if (Array.isArray(palette) && palette.length > 0) {
               await db.execute({
                 sql: 'UPDATE builds SET brand_colors = ? WHERE id = ?',

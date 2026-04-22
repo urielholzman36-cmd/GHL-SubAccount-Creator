@@ -34,7 +34,7 @@ export const brand = {
   get logoBuffer() {
     if (!this._logoBuffer) {
       try {
-        this._logoBuffer = readFileSync(resolve(__dirname, '../../src/assets/vo360-logo.png'));
+        this._logoBuffer = readFileSync(resolve(__dirname, '../assets/vo360-logo.png'));
       } catch {
         this._logoBuffer = null;
       }
