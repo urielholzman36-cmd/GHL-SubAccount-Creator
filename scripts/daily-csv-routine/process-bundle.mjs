@@ -16,7 +16,7 @@ import { uploadAll } from './lib/cloudinary-uploader.mjs';
 import { buildGhlCsv } from './lib/csv-builder.mjs';
 import { buildSummary } from './lib/summary-builder.mjs';
 import { outputCsvName } from './lib/detector.mjs';
-import { parseManifestMd, parsePostKitsMd } from '../../server/services/manus-importer.js';
+import { parseManifestMd, parsePostKitsMd, parseAssetListMd } from '../../server/services/manus-importer.js';
 
 function loadEnvFrom(dotenvPath) {
   if (!fs.existsSync(dotenvPath)) return;
@@ -61,6 +61,25 @@ export async function processBundle({ clientName, sourcePath, year, month, start
 
     const manifest = parseManifestMd(manifestPath);
     const kits = postKitsPath ? parsePostKitsMd(postKitsPath) : new Map();
+
+    // Manus format drift: newer bundles split metadata (base manifest) from
+    // the final asset filenames (_asset_update or _asset_routing supplement).
+    // If the manifest has entries with zero slides, try to populate from a
+    // supplement file.
+    const missingSlides = [...manifest.values()].some(e => e.slides.length === 0);
+    if (missingSlides) {
+      const assetSupplement = allFiles.find(f =>
+        /_asset_(update|routing)[^/]*\.md$/i.test(path.basename(f))
+      );
+      if (assetSupplement) {
+        const assetMap = parseAssetListMd(assetSupplement);
+        for (const [postId, entry] of manifest) {
+          if (entry.slides.length === 0 && assetMap.has(postId)) {
+            entry.slides.push({ filename: assetMap.get(postId), role: 'single' });
+          }
+        }
+      }
+    }
 
     // Build upload jobs
     const imageByName = new Map(images.map(p => [path.basename(p).toLowerCase(), p]));

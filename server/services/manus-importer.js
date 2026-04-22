@@ -283,6 +283,52 @@ export function parseManifestMd(filepath) {
   return map;
 }
 
+/**
+ * Parse a Manus "asset update" or "asset routing" supplement table.
+ * These files carry Post ID → final asset filename mappings when the base
+ * manifest doesn't have a filename column. Format is a markdown table with
+ * a Post ID column and one of several filename-column aliases.
+ * Returns Map<postId, filename>.
+ */
+export function parseAssetListMd(filepath) {
+  const raw = fs.readFileSync(filepath, 'utf8');
+  const lines = raw.split(/\r?\n/);
+  const out = new Map();
+
+  // Find any header row that includes a post id column.
+  for (let h = 0; h < lines.length; h++) {
+    if (!/^\s*\|/.test(lines[h])) continue;
+    const headerCells = lines[h]
+      .split('|').map((s) => s.trim()).filter(Boolean)
+      .map(normalizeKey);
+    const idxPostId = headerCells.findIndex((k) => ['postid', 'id'].includes(k));
+    if (idxPostId === -1) continue;
+    const filenameAliases = [
+      'filename', 'file', 'asset',
+      'finalassetfiletouse',
+      'finalproductionasset',
+      'finalasset',
+      'productionasset',
+      'assetfile',
+    ];
+    const idxFile = headerCells.findIndex((k) => filenameAliases.includes(k));
+    if (idxFile === -1) continue;
+
+    for (let i = h + 2; i < lines.length; i++) {
+      const line = lines[i];
+      if (!/^\s*\|/.test(line)) break;
+      const cells = line.split('|').map((s) => s.trim());
+      const trimmed = cells.filter((_, j) => j !== 0 && j !== cells.length - 1);
+      const get = (ix) => (ix >= 0 && ix < trimmed.length ? trimmed[ix].replace(/^`|`$/g, '') : '');
+      const postId = get(idxPostId).toUpperCase();
+      const filename = path.basename(get(idxFile));
+      if (postId && filename) out.set(postId, filename);
+    }
+    if (out.size > 0) return out;
+  }
+  return out;
+}
+
 function slideOrderFromRole(role) {
   if (!role) return 999;
   const r = role.toLowerCase();
@@ -315,7 +361,7 @@ export function parsePostKitsMd(filepath) {
   // Match H2 headers in either order — "## LYR-01 — Title" or "## Day 1 — LYR-01"
   // Post ID prefix allows letters + optional digits (e.g. LYR-01, VO360-01).
   // Capture groups: (full header line, extracted post_id)
-  const HEADER_RE = /^##\s+(?:(?:day\s*\d+)\s*[—–-]\s*([A-Z]{2,}[0-9]*-\d+)|([A-Z]{2,}[0-9]*-\d+)\s*[—–-]\s*.*)\s*$/gim;
+  const HEADER_RE = /^#{2,}\s+(?:(?:day\s*\d+)\s*[—–-]\s*([A-Z]{2,}[0-9]*-\d+)|([A-Z]{2,}[0-9]*-\d+)\s*[—–-]\s*.*)\s*$/gim;
   const headers = [];
   let m;
   while ((m = HEADER_RE.exec(raw)) !== null) {
