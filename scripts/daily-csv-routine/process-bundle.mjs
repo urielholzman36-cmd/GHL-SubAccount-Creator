@@ -65,7 +65,7 @@ export async function processBundle({ clientName, sourcePath, year, month, start
     // Manus format drift: newer bundles split metadata (base manifest) from
     // the final asset filenames (_asset_update or _asset_routing supplement).
     // If the manifest has entries with zero slides, try to populate from a
-    // supplement file.
+    // supplement file, then scan for interior carousel slides by filename.
     const missingSlides = [...manifest.values()].some(e => e.slides.length === 0);
     if (missingSlides) {
       const assetSupplement = allFiles.find(f =>
@@ -75,7 +75,41 @@ export async function processBundle({ clientName, sourcePath, year, month, start
         const assetMap = parseAssetListMd(assetSupplement);
         for (const [postId, entry] of manifest) {
           if (entry.slides.length === 0 && assetMap.has(postId)) {
-            entry.slides.push({ filename: assetMap.get(postId), role: 'single' });
+            entry.slides.push({ filename: assetMap.get(postId), role: 's01' });
+          }
+        }
+
+        // Interior carousel slides: scan for CAL-XX_vN_slideM_*.png style
+        // filenames and append them to each post. Highest version per slide
+        // position wins; slide position drives order.
+        const byPostSlide = new Map();
+        for (const imagePath of images) {
+          const base = path.basename(imagePath);
+          const postMatch = base.match(/^([A-Z]{2,}[0-9]*-\d+)_/);
+          const slideMatch = base.match(/_slide(\d+)_/i);
+          if (!postMatch || !slideMatch) continue;
+          const slideNum = parseInt(slideMatch[1], 10);
+          if (slideNum < 2) continue;
+          const postId = postMatch[1].toUpperCase();
+          const versionMatch = base.match(/_v(\d+)_/i);
+          const version = versionMatch ? parseInt(versionMatch[1], 10) : 0;
+          const key = `${postId}:${slideNum}`;
+          const existing = byPostSlide.get(key);
+          if (!existing || version > existing.version) {
+            byPostSlide.set(key, { filename: base, version });
+          }
+        }
+        const postSlides = {};
+        for (const [key, val] of byPostSlide) {
+          const [postId, n] = key.split(':');
+          (postSlides[postId] ||= []).push({ n: parseInt(n, 10), filename: val.filename });
+        }
+        for (const postId of Object.keys(postSlides)) {
+          const entry = manifest.get(postId);
+          if (!entry || entry.slides.length === 0) continue;
+          postSlides[postId].sort((a, b) => a.n - b.n);
+          for (const s of postSlides[postId]) {
+            entry.slides.push({ filename: s.filename, role: `s${String(s.n).padStart(2, '0')}` });
           }
         }
       }
