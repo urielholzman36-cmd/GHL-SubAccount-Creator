@@ -1,14 +1,6 @@
 import { useEffect, useState } from 'react';
-import AwaitingWebsiteBanner from './AwaitingWebsiteBanner';
 
-const STEP_NAMES = [
-  'Create Sub-Account',
-  'Assign Snapshot',
-  'Create Pipeline',
-  'Configure Calendar',
-  'Set Up Automation',
-  'Finalize',
-];
+const STEP_NAMES = ['Create Sub-Account'];
 
 function StepBadge({ status }) {
   if (status === 'success' || status === 'completed') {
@@ -119,63 +111,10 @@ export default function BuildDetailRow({ buildId }) {
   }
 
   const steps = data?.steps ?? [];
-  const isPaused = data?.status === 'paused';
-  const pauseContext = (() => {
-    if (!data?.pause_context) return null;
-    try { return JSON.parse(data.pause_context); } catch { return null; }
-  })();
-  const isAwaitingWebsite = isPaused && pauseContext?.reason === 'awaiting_website';
-
-  async function handleResume() {
-    try {
-      await fetch(`/api/builds/${buildId}/resume`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      const res = await fetch(`/api/builds/${buildId}`);
-      if (res.ok) setData(await res.json());
-    } catch (err) {
-      console.error('Resume failed:', err);
-    }
-  }
 
   return (
     <tr>
       <td colSpan={6} className="bg-white/3 border-b border-white/5 px-6 py-4">
-        {isAwaitingWebsite && (
-          <AwaitingWebsiteBanner
-            pauseInfo={{ context: pauseContext }}
-            onResume={async (payload) => {
-              await fetch(`/api/builds/${buildId}/resume`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-              });
-              const res = await fetch(`/api/builds/${buildId}`);
-              if (res.ok) setData(await res.json());
-            }}
-            resuming={false}
-            buildId={buildId}
-          />
-        )}
-        {isPaused && !isAwaitingWebsite && (
-          <div className="mb-3 glass rounded-lg p-3 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-bold text-amber-400">Waiting to continue</p>
-              <p className="text-xs text-white/30 mt-0.5">
-                This build is paused at step {data?.paused_at_step}. Click Continue to proceed.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleResume}
-              className="text-sm font-bold px-5 py-2 rounded-lg bg-brand-gradient text-white shadow-lg shadow-magenta/20 hover:opacity-90 transition"
-            >
-              Continue
-            </button>
-          </div>
-        )}
         <div className="space-y-3">
           {steps.map((step, i) => {
             const name = step.step_name ?? STEP_NAMES[i] ?? `Step ${i + 1}`;
@@ -216,27 +155,6 @@ export default function BuildDetailRow({ buildId }) {
           )}
         </div>
 
-        {/* Page links + CSS for completed builds */}
-        {data?.status === 'completed' && (data?.privacy_policy_url || data?.site_css) && (
-          <div className="mt-4 pt-4 border-t border-white/5 flex flex-wrap gap-4 items-start">
-            {(data.privacy_policy_url || data.terms_url || data.faq_url) && (
-              <div className="flex gap-3">
-                {data.privacy_policy_url && (
-                  <a href={data.privacy_policy_url} target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-accent-teal hover:text-accent-teal/80 transition">PP ↗</a>
-                )}
-                {data.terms_url && (
-                  <a href={data.terms_url} target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-accent-teal hover:text-accent-teal/80 transition">ToS ↗</a>
-                )}
-                {data.faq_url && (
-                  <a href={data.faq_url} target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-accent-teal hover:text-accent-teal/80 transition">FAQ ↗</a>
-                )}
-              </div>
-            )}
-          </div>
-        )}
       </td>
     </tr>
   );

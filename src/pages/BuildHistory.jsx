@@ -3,7 +3,7 @@ import BuildTable from '../components/BuildTable';
 
 export default function BuildHistory() {
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <h1 className="text-xl font-bold text-white mb-1">Build History</h1>
       <p className="text-white/30 text-sm mb-6">All sub-account builds</p>
       <StatsCards />

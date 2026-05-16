@@ -76,7 +76,7 @@ export default function Users() {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-8">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-white">User Management</h1>

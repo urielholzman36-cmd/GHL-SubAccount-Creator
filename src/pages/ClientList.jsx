@@ -20,7 +20,7 @@ export default function ClientList() {
   );
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">Clients</h1>
         <div className="flex gap-2">
@@ -30,12 +30,6 @@ export default function ClientList() {
             title="Drop a Manus research bundle and AI fills in the client for you"
           >
             ↓ Import from Research
-          </Link>
-          <Link
-            to="/social/client/new"
-            className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#2dd4bf] via-[#3b82f6] to-[#a855f7] text-white text-sm font-medium hover:opacity-90 transition-opacity"
-          >
-            + New Client
           </Link>
         </div>
       </div>
@@ -53,7 +47,7 @@ export default function ClientList() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-white/30 text-sm">No clients found.</p>
-          <p className="text-white/20 text-xs mt-1">Create one via Onboarding or the Social Planner.</p>
+          <p className="text-white/20 text-xs mt-1">Create one via Onboarding or Import from Research.</p>
         </div>
       ) : (
         <div className="grid gap-3">

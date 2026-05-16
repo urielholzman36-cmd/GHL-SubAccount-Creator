@@ -95,7 +95,7 @@ export default function ClientHealth() {
   }));
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <Link to="/health" className="text-white/40 hover:text-white/70 text-sm">← Back to Health Monitor</Link>
 
       <div className="flex items-center justify-between mt-3 mb-6">

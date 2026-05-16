@@ -369,8 +369,8 @@ export function createBuildsRouter(db) {
     const { id, step } = req.params;
     const stepNumber = parseInt(step);
 
-    if (isNaN(stepNumber) || stepNumber < 1 || stepNumber > 10) {
-      return res.status(400).json({ error: 'step must be a number between 1 and 10' });
+    if (isNaN(stepNumber) || stepNumber !== 1) {
+      return res.status(400).json({ error: 'step must be 1' });
     }
 
     const build = await queries.getBuildById(db, id);
@@ -404,69 +404,6 @@ export function createBuildsRouter(db) {
     });
 
     res.json({ ok: true, id, retryingFromStep: stepNumber });
-  });
-
-  // POST /:id/resume — resume a paused build
-  router.post('/:id/resume', async (req, res) => {
-    const { id } = req.params;
-    const build = await queries.getBuildById(db, id);
-    if (!build) return res.status(404).json({ error: 'Build not found' });
-    if (build.status !== 'paused') {
-      return res.status(400).json({ error: 'Build is not paused' });
-    }
-
-    const ghl = new GhlApi(process.env.GHL_AGENCY_API_KEY);
-    const runner = new BuildRunner(db, ghl);
-    const emit = runnerEmit(id);
-
-    runner.resume(id, req.body || {}, emit).then(async () => {
-      const finalBuild = await queries.getBuildById(db, id);
-      if (finalBuild.status === 'completed') {
-        broadcastToBuild(id, 'build-complete', { id });
-      } else if (finalBuild.status === 'failed') {
-        const steps = await queries.getBuildSteps(db, id);
-        const failedStep = steps.find((s) => s.status === 'failed');
-        broadcastToBuild(id, 'build-failed', { id, failedStep: failedStep || null });
-      }
-    }).catch(async () => {
-      const steps = await queries.getBuildSteps(db, id);
-      const failedStep = steps.find((s) => s.status === 'failed');
-      broadcastToBuild(id, 'build-failed', { id, failedStep: failedStep || null });
-    });
-
-    res.status(202).json({ ok: true, id });
-  });
-
-  // POST /:id/skip-website — skip website setup steps and complete the build
-  router.post('/:id/skip-website', async (req, res) => {
-    const { id } = req.params;
-    const build = await queries.getBuildById(db, id);
-    if (!build) return res.status(404).json({ error: 'Build not found' });
-    if (build.status !== 'paused') {
-      return res.status(400).json({ error: 'Build is not paused' });
-    }
-
-    // Mark all remaining steps (3-10) as skipped
-    const steps = await queries.getBuildSteps(db, id);
-    for (const step of steps) {
-      if (step.step_number >= 3 && step.status !== 'completed') {
-        await db.execute({
-          sql: `UPDATE build_steps SET status = 'skipped', completed_at = datetime('now') WHERE build_id = ? AND step_number = ?`,
-          args: [id, step.step_number],
-        });
-        broadcastToBuild(id, 'step-update', {
-          step: step.step_number,
-          status: 'skipped',
-        });
-      }
-    }
-
-    // Clear pause state and mark build as completed
-    await queries.clearPauseState(db, id);
-    await queries.updateBuildStatus(db, id, 'completed', null);
-    broadcastToBuild(id, 'build-complete', { id });
-
-    res.json({ ok: true, id, skipped: true });
   });
 
   // DELETE /:id — delete a build and its steps

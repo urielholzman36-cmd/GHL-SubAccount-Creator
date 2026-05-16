@@ -2,6 +2,24 @@ import { useState, useEffect } from 'react';
 import CollapsibleSection from './CollapsibleSection';
 import logoSrc from '../lib/logoSrc';
 
+const COUNTRY_ALIASES = {
+  'united states': 'US',
+  'united states of america': 'US',
+  'usa': 'US',
+  'america': 'US',
+  'canada': 'CA',
+  'mexico': 'MX',
+  'united kingdom': 'GB',
+  'uk': 'GB',
+};
+
+function normalizeCountryCode(value) {
+  if (!value) return 'US';
+  const trimmed = String(value).trim();
+  if (trimmed.length === 2) return trimmed.toUpperCase();
+  return COUNTRY_ALIASES[trimmed.toLowerCase()] || 'US';
+}
+
 const TIMEZONES = [
   'America/New_York',
   'America/Chicago',
@@ -160,7 +178,7 @@ export default function BuildForm({ onBuildStarted }) {
         city: client.city || '',
         state: client.state || '',
         zip: client.zip || '',
-        country: client.country || 'US',
+        country: normalizeCountryCode(client.country),
         industry: 'general',
         timezone: client.timezone || '',
         websiteUrl: client.website || '',
@@ -356,7 +374,7 @@ export default function BuildForm({ onBuildStarted }) {
 
         {/* Section 1: Business Information */}
         <CollapsibleSection title="Business Information" defaultOpen={true}>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="col-span-2">
               <Field label="Business Name" error={errors.businessName}>
                 <input
@@ -465,7 +483,7 @@ export default function BuildForm({ onBuildStarted }) {
 
         {/* Section 2: Configuration */}
         <CollapsibleSection title="Configuration">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Timezone" error={errors.timezone}>
               <select
                 className={inputClass}
@@ -599,7 +617,7 @@ export default function BuildForm({ onBuildStarted }) {
 
         {/* Section 3: Company Owner */}
         <CollapsibleSection title="Company Owner">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="First Name" error={errors.firstName}>
               <input
                 className={inputClass}

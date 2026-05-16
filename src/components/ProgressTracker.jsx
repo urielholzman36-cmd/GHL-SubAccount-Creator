@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useSSE } from '../hooks/useSSE';
-import AwaitingWebsiteBanner from './AwaitingWebsiteBanner';
 
 const STATUS_CONFIG = {
   pending:   { bg: 'bg-white/5', border: 'border-white/10', text: 'text-white/25', label: 'Pending',  glow: '' },
@@ -52,18 +51,7 @@ function formatDuration(ms) {
 }
 
 export default function ProgressTracker({ buildId, onRetry }) {
-  const { phases, steps, buildStatus, buildResult, pauseInfo, reconnect } = useSSE(buildId);
-  const [resuming, setResuming] = useState(false);
-  const [buildDetail, setBuildDetail] = useState(null);
-  // Fetch build details when complete to get page URLs
-  useEffect(() => {
-    if (buildStatus === 'complete') {
-      fetch(`/api/builds/${buildId}`)
-        .then((r) => r.ok ? r.json() : null)
-        .then((d) => setBuildDetail(d))
-        .catch(() => {});
-    }
-  }, [buildStatus, buildId]);
+  const { steps, buildStatus, buildResult, reconnect } = useSSE(buildId);
 
   const completedCount = steps.filter((s) => s.status === 'completed' || s.status === 'warning' || s.status === 'skipped').length;
   const progressPct = Math.round((completedCount / steps.length) * 100);
@@ -75,22 +63,6 @@ export default function ProgressTracker({ buildId, onRetry }) {
       if (onRetry) onRetry();
     } catch (err) {
       console.error('Retry failed:', err);
-    }
-  }
-
-  async function handleResume(payload) {
-    setResuming(true);
-    try {
-      await fetch(`/api/builds/${buildId}/resume`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload || {}),
-      });
-      reconnect();
-    } catch (err) {
-      console.error('Resume failed:', err);
-    } finally {
-      setResuming(false);
     }
   }
 
@@ -111,7 +83,7 @@ export default function ProgressTracker({ buildId, onRetry }) {
       </div>
 
       {/* Horizontal step cards */}
-      <div className="grid grid-cols-3 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {steps.map((step) => {
           const cfg = STATUS_CONFIG[step.status] || STATUS_CONFIG.pending;
           const isActive = step.status === 'running' || step.status === 'paused';
@@ -166,73 +138,18 @@ export default function ProgressTracker({ buildId, onRetry }) {
         })}
       </div>
 
-      {/* Awaiting website banner */}
-      {buildStatus === 'paused' && pauseInfo?.context?.reason === 'awaiting_website' && (
-        <AwaitingWebsiteBanner
-          pauseInfo={pauseInfo}
-          onResume={handleResume}
-          resuming={resuming}
-          buildId={buildId}
-        />
-      )}
-
-      {/* Generic pause */}
-      {buildStatus === 'paused' && pauseInfo && pauseInfo.context?.reason !== 'awaiting_website' && (
-        <div className="glass rounded-xl p-5">
-          <p className="text-sm font-bold text-amber-400">Waiting to continue</p>
-          <p className="text-xs text-white/30 mt-1">
-            {pauseInfo.context?.message || 'This build is paused. Click Continue to proceed.'}
-          </p>
-          <button
-            type="button"
-            onClick={() => handleResume()}
-            disabled={resuming}
-            className="mt-3 text-sm font-semibold text-white bg-brand-gradient hover:opacity-90 disabled:opacity-40 px-5 py-2 rounded-lg shadow-lg shadow-magenta/20 transition"
-          >
-            {resuming ? 'Resuming…' : 'Continue'}
-          </button>
-        </div>
-      )}
-
       {/* Build complete */}
       {buildStatus === 'complete' && buildResult && (
         <div className="space-y-4">
           <div className="glass rounded-xl p-5 glow-green">
-            <p className="text-base font-bold text-green-400">Onboarding Complete!</p>
-            <p className="text-sm text-white/40 mt-1">The client environment is ready.</p>
+            <p className="text-base font-bold text-green-400">Sub-Account Created!</p>
+            <p className="text-sm text-white/40 mt-1">The GHL sub-account is ready.</p>
             {buildResult.total_duration_ms != null && (
               <p className="text-xs text-white/20 mt-2">
                 Total time: {formatDuration(buildResult.total_duration_ms)}
               </p>
             )}
           </div>
-
-          {/* Published pages */}
-          {buildDetail && (buildDetail.privacy_policy_url || buildDetail.terms_url || buildDetail.faq_url) && (
-            <div className="glass rounded-xl p-5">
-              <p className="text-sm font-bold text-white/70 mb-3">Published Pages</p>
-              <div className="space-y-2">
-                {buildDetail.privacy_policy_url && (
-                  <a href={buildDetail.privacy_policy_url} target="_blank" rel="noopener noreferrer"
-                    className="block text-sm text-accent-teal hover:text-accent-teal/80 transition">
-                    Privacy Policy ↗
-                  </a>
-                )}
-                {buildDetail.terms_url && (
-                  <a href={buildDetail.terms_url} target="_blank" rel="noopener noreferrer"
-                    className="block text-sm text-accent-teal hover:text-accent-teal/80 transition">
-                    Terms of Service ↗
-                  </a>
-                )}
-                {buildDetail.faq_url && (
-                  <a href={buildDetail.faq_url} target="_blank" rel="noopener noreferrer"
-                    className="block text-sm text-accent-teal hover:text-accent-teal/80 transition">
-                    FAQ ↗
-                  </a>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Manual reminder */}
           <div className="glass rounded-xl p-5 border border-amber-500/20">

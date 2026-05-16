@@ -107,13 +107,13 @@ export default function DocumentView() {
     }
   }
 
-  if (loading) return <div className="p-8 pl-16 text-white/40 text-sm">Loading…</div>;
-  if (error || !doc) return <div className="p-8 pl-16 text-[#ef4444]">{error || 'Not found'}</div>;
+  if (loading) return <div className="p-4 sm:p-8 sm:pl-16 text-white/40 text-sm">Loading…</div>;
+  if (error || !doc) return <div className="p-4 sm:p-8 sm:pl-16 text-[#ef4444]">{error || 'Not found'}</div>;
 
   const dir = doc.language === 'he' ? 'rtl' : 'ltr';
 
   return (
-    <div className="p-8 pl-16 text-white min-h-screen max-w-4xl">
+    <div className="p-4 sm:p-8 sm:pl-16 text-white min-h-screen max-w-4xl">
       <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
         <div className="flex items-start gap-3 min-w-0 flex-1">
           <Link to="/kb" className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 text-white/60 shrink-0 mt-1">

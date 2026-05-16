@@ -11,7 +11,7 @@ export function getStructurerPrompt(existingCategories) {
 4. **Use numbered steps** for sequential procedures.
 5. **Use checkboxes** (\`- [ ]\`) for actionable items or verification steps.
 6. **Add screenshot placeholders** where visuals would help: \`[screenshot: description of what to capture]\`
-7. **Bold tool names**: **GHL**, **10web**, **BatchLeads**, **Cloudinary**, **Vercel**, etc.
+7. **Bold tool names**: **GHL**, **BatchLeads**, **Cloudinary**, **Vercel**, etc.
 8. **Keep tone** professional but practical. No fluff.
 9. **Suggest a title** that clearly describes the process (e.g., "How to Set Up a GHL Sub-Account").
 10. **Suggest a category** from the existing list below. If none fit, suggest a new category name and set is_new_category to true.

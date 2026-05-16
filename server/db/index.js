@@ -1,6 +1,5 @@
 import { initializeSocialTables } from './social-schema.js';
 import { initializeKbTables } from '../modules/kb/schema.js';
-import { initializeProposalsTables } from '../modules/proposals/schema.js';
 import { initializeReportsTables } from '../modules/reports/schema.js';
 
 export async function initializeDb(db) {
@@ -248,9 +247,6 @@ export async function initializeDb(db) {
 
   // M2 Knowledge Base tables
   await initializeKbTables(db);
-
-  // M3 Proposals table
-  await initializeProposalsTables(db);
 
   // M4 Reports table
   await initializeReportsTables(db);

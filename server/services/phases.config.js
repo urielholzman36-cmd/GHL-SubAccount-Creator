@@ -6,27 +6,6 @@ export const PHASES = [
       { number: 1, name: 'Create Sub-Account' },
     ],
   },
-  {
-    id: 2,
-    name: 'Website Build',
-    steps: [
-      { number: 2, name: 'Generate 10web Prompt' },
-      { number: 3, name: 'Website Creation (Manual)', pausesForManualInput: true },
-    ],
-  },
-  {
-    id: 3,
-    name: 'WordPress Setup',
-    steps: [
-      { number: 4, name: 'Validate WordPress' },
-      { number: 5, name: 'Install Plugins' },
-      { number: 6, name: 'Upload Logo' },
-      { number: 7, name: 'Fix Header', optional: true },
-      { number: 8, name: 'Generate Legal Pages' },
-      { number: 9, name: 'Generate FAQ' },
-      { number: 10, name: 'Publish Pages' },
-    ],
-  },
 ];
 
 export function getAllSteps() {

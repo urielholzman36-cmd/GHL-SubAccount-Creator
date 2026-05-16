@@ -1,6 +1,6 @@
 import PDFDocument from 'pdfkit';
 import sharp from 'sharp';
-import { BRAND, getLogoBuffer } from '../../proposals/services/brand.js';
+import { BRAND, getLogoBuffer } from './brand.js';
 
 let smallLogoPromise = null;
 function getSmallLogo() {

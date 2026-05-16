@@ -8,27 +8,6 @@ const DEFAULT_PHASES = [
       { step: 1, name: 'Create Sub-Account' },
     ],
   },
-  {
-    id: 2,
-    name: 'Website Build',
-    steps: [
-      { step: 2, name: 'Generate 10web Prompt' },
-      { step: 3, name: 'Website Creation (Manual)' },
-    ],
-  },
-  {
-    id: 3,
-    name: 'WordPress Setup',
-    steps: [
-      { step: 4, name: 'Validate WordPress' },
-      { step: 5, name: 'Install Plugins' },
-      { step: 6, name: 'Upload Logo' },
-      { step: 7, name: 'Fix Header' },
-      { step: 8, name: 'Generate Legal Pages' },
-      { step: 9, name: 'Generate FAQ' },
-      { step: 10, name: 'Publish Pages' },
-    ],
-  },
 ];
 
 function initialPhases() {

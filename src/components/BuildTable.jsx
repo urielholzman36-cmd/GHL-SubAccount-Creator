@@ -154,8 +154,8 @@ export default function BuildTable() {
       </div>
 
       {/* Table */}
-      <div className="glass rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="glass rounded-xl overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="border-b border-white/5">
               <th className="text-left px-4 py-3 font-semibold text-white/40 text-xs uppercase tracking-wider">Business</th>

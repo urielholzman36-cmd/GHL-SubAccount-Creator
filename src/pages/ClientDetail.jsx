@@ -172,7 +172,7 @@ export default function ClientDetail() {
   const cityState = [client.city, client.state].filter(Boolean).join(', ');
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       <Link
         to="/clients"
         className="inline-flex items-center gap-1.5 text-white/40 hover:text-white/80 text-sm mb-4 transition-colors"
@@ -207,12 +207,6 @@ export default function ClientDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            to={`/social/client/${id}`}
-            className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/60 text-sm hover:bg-white/10 hover:text-white transition-all"
-          >
-            Edit Full Profile
-          </Link>
           <button
             onClick={() => { setConfirmOpen(true); setConfirmText(''); }}
             className="px-4 py-2 rounded-lg bg-[#ef4444]/10 border border-[#ef4444]/30 text-[#ef4444] text-sm hover:bg-[#ef4444]/20 transition-all"
@@ -223,10 +217,8 @@ export default function ClientDetail() {
       </div>
 
       <div className="flex flex-wrap gap-3 mb-8">
-        <QuickAction label="Social Planner" to={`/social/client/${id}/campaigns`} icon="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         <QuickAction label="Health" to={`/health/${id}`} icon="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5" />
         <QuickAction label="Generate Report" to="/reports" icon="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5" />
-        <QuickAction label="Create Proposal" to="/proposals" icon="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192" />
       </div>
 
       {confirmOpen && (

@@ -129,7 +129,7 @@ export default function ReportsList() {
   const data = report?.data_snapshot_json ? JSON.parse(report.data_snapshot_json) : null;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Reports</h1>
         <p className="text-white/40 text-sm mt-1">Monthly AI-narrated PDF reports for your clients.</p>

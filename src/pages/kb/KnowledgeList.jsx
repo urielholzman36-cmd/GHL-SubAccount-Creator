@@ -40,7 +40,7 @@ export default function KnowledgeList() {
   }, [docs, search, activeCategory]);
 
   return (
-    <div className="p-8 pl-16 text-white min-h-screen max-w-6xl">
+    <div className="p-4 sm:p-8 sm:pl-16 text-white min-h-screen max-w-6xl">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Knowledge Base</h1>

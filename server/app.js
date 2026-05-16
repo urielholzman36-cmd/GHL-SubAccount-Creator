@@ -15,13 +15,10 @@ import { createAuthRouter } from './routes/auth.js';
 import { createBuildsRouter } from './routes/builds.js';
 import { createStatsRouter } from './routes/stats.js';
 import { createClientsRouter } from './routes/clients.js';
-import { createCampaignsRouter } from './routes/campaigns.js';
 import { createSettingsRouter } from './routes/settings.js';
 import { createHealthRouter } from './modules/health/routes.js';
 import { createKbRouter } from './modules/kb/routes.js';
-import { createProposalsRouter } from './modules/proposals/routes.js';
 import { createReportsRouter } from './modules/reports/routes.js';
-import { createPagePromptsRouter } from './routes/page-prompts.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
@@ -105,44 +102,15 @@ if (isVercel) {
   app.set('trust proxy', 1);
 }
 
-// ─── Public routes (no auth) ─────────────────────────────────────────────────
-app.get('/api/preview/:id', async (req, res) => {
-  const { getCampaign, getClient, listCampaignPosts } = await import('./db/social-queries.js');
-  const campaign = await getCampaign(db, req.params.id);
-  if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
-  const client = await getClient(db, campaign.client_id);
-  const posts = await listCampaignPosts(db, campaign.id);
-  res.json({
-    client_name: client?.name || 'Client',
-    client_logo: client?.logo_path || null,
-    month: campaign.month,
-    theme: campaign.theme,
-    posts: posts.map(p => ({
-      day_number: p.day_number,
-      post_date: p.post_date,
-      pillar: p.pillar,
-      post_type: p.post_type,
-      concept: p.concept,
-      caption: p.caption,
-      hashtags: p.hashtags,
-      image_urls: p.image_urls,
-      slide_count: p.slide_count,
-    })),
-  });
-});
-
 // ─── Authenticated routes ────────────────────────────────────────────────────
 app.use('/api/auth', createAuthRouter(db));
 app.use('/api/builds', requireAuth, createBuildsRouter(db));
 app.use('/api/stats', requireAuth, createStatsRouter(db));
 app.use('/api/clients', requireAuth, createClientsRouter(db));
-app.use('/api/campaigns', requireAuth, createCampaignsRouter(db));
 app.use('/api/settings', requireAuth, createSettingsRouter());
 app.use('/api/health', requireAuth, createHealthRouter(db));
 app.use('/api/kb', requireAuth, createKbRouter(db));
-app.use('/api/proposals', requireAuth, createProposalsRouter(db));
 app.use('/api/reports', requireAuth, createReportsRouter(db));
-app.use('/api/page-prompts', requireAuth, createPagePromptsRouter(db));
 
 // ─── Static files (production) ───────────────────────────────────────────────
 const distPath = join(projectRoot, 'dist');
