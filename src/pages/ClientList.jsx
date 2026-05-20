@@ -31,6 +31,13 @@ export default function ClientList() {
           >
             ↓ Import from Research
           </Link>
+          <Link
+            to="/onboarding"
+            className="px-3 py-2 rounded-lg bg-gradient-to-r from-[#3b82f6] to-[#8b5cf6] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+            title="Create a new client via the Onboarding flow"
+          >
+            + Add Client
+          </Link>
         </div>
       </div>
 
